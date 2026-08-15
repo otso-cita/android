@@ -1,5 +1,11 @@
 # otso-cita Android app + on-device cita bot
 
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-support%20me-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/otsocita)
+
+If this bot saved you a trip to the extranjería (or a few weeks of F5), you can
+say thanks at <https://ko-fi.com/otsocita>. Entirely optional — the app is free,
+no features are locked.
+
 Two things ship in this APK:
 
 1. **otso-cita accessibility service** — reads the screen and drives apps via the
@@ -171,17 +177,6 @@ label constants at the top of `CitaBot.java` if a step fails:
   if both panels share text, fall back to tapping the leftmost by bounds.
 - **Certificate dialog** — `CERT_LABELS` / `CERT_OK_LABELS` cover the common
   button texts; add your device's exact wording if needed.
-
-## Support / donate
-
-If this bot saved you a trip to the extranjería (or a few weeks of F5), you can
-say thanks here:
-
-[![Ko-fi](https://img.shields.io/badge/Ko--fi-support%20me-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/otsocita)
-
-<https://ko-fi.com/otsocita>
-
-Entirely optional — the app is free, no features are locked.
 
 ## WAF / anti-bot notes
 

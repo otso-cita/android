@@ -1,0 +1,15 @@
+# Gradle / Android build output — always regenerated
+build/
+.gradle/
+.cxx/
+local.properties
+debug.keystore
+
+# Android Studio / IDE
+.idea/
+*.iml
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc

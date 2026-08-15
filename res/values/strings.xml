@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accessibility_service_description">otso-cita device-control service: reads the screen and drives apps via the accessibility tree.</string>
+</resources>

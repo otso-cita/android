@@ -13,7 +13,7 @@ no features are locked.
    and open it to install (Android will ask you to allow installing from
    unknown sources — accept).
 2. **Open otso-cita** — it shows a checklist. Tap each button and follow along:
-   - **Accesibilidad** → tap **ACTIVAR** and switch on **otso-cita**. On
+   - **Accessibility** → tap **ENABLE** and switch on **otso-cita**. On
      Android 13+ the switch may be greyed out with a *"Restricted setting"* /
      *"Ajuste restringido"* message (normal for apps installed outside the
      Play Store). Fix: Settings → Apps → **otso-cita** → tap **⋮** (top
@@ -23,15 +23,15 @@ no features are locked.
    - **Shizuku** → install it from the Play Store, then start it using
      **Wireless debugging** (the Shizuku app walks you through it, no PC
      needed — details in [Shizuku setup](#shizuku-setup-for-ip-rotation)),
-     then come back and tap **DAR PERMISO**.
-   - **Whisper** → tap **DESCARGAR** (a ~514 MB one-time download — use Wi-Fi).
-3. **Enter your details** on the main screen: your **provincia**, how you sign
-   in (**Certificado** or **Cl@ve permanente**), your **nacionalidad**, and
+     then come back and tap **GRANT**.
+   - **Whisper** → tap **DOWNLOAD** (a ~514 MB one-time download — use Wi-Fi).
+3. **Enter your details** on the main screen: your **province**, how you sign
+   in (**Certificate** or **Cl@ve permanente**), your **nationality**, and
    your **surname** (used to pick your certificate).
 4. Make sure you're on **mobile data**, then press **START**. The phone hunts
    for a cita by itself, buzzes + notifies you the moment one appears, and
-   books it for you. (Prefer to book by hand? Untick **Reservar
-   automáticamente** and the bot will stop for you at that point instead.)
+   books it for you. (Prefer to book by hand? Untick **Book automatically**
+   and the bot will stop for you at that point instead.)
 
 The sections below explain each step in more detail.
 
@@ -60,8 +60,8 @@ Two things ship in this APK:
 4. **Result**: no citas → **repeat immediately** (no wait, no IP rotation), back
    at the entry URL; a WAF block → **no waiting**: wipe the ICP+ site's
    cookies/storage in Chrome, rotate the IP, retry at once; **huecos** → you're
-   notified at once (vibration + notification), and then — with **Reservar
-   automáticamente** on (the default) — the bot **books the cita itself**:
+   notified at once (vibration + notification), and then — with **Book
+   automatically** on (the default) — the bot **books the cita itself**:
    picks an office, a slot inside your date window, solves the voice captcha
    with Whisper, presses Confirmar, and stops with the justificante in the log.
    With the checkbox off it **stops immediately** instead, leaving the page
@@ -76,17 +76,17 @@ Chrome's labels move in a future version, adjust `COOKIES_ROW_LABELS` /
 
 ## Prerequisites on the phone
 
-On first launch the app shows a **Preparación** checklist (Accesibilidad ·
+On first launch the app shows a **Setup** checklist (Accessibility ·
 Shizuku · Whisper) and hides the main screen until all three are ✓. Each row has
 a button that takes you to the right place:
 
-- **Accesibilidad** — tap **ACTIVAR** (opens Settings → Accessibility) and
+- **Accessibility** — tap **ENABLE** (opens Settings → Accessibility) and
   enable **otso-cita**. If Android blocks it with *"Restricted setting"*
   (Android 13+ does this for sideloaded apps), allow it first via
   Settings → Apps → otso-cita → **⋮** → **Allow restricted settings** — see
   [Google's instructions](https://support.google.com/android/answer/12623953?p=restricted_settings).
 - **Shizuku** — install + start + grant; full steps in the next section.
-- **Whisper (captcha de voz)** — tap **DESCARGAR** to fetch the speech model
+- **Whisper (voice captcha)** — tap **DOWNLOAD** to fetch the speech model
   used to solve the voice captcha (`ggml-medium-q5_0.bin`, **~514 MB**, from
   Hugging Face — do it on Wi-Fi). One-time download; kept in app storage.
 
@@ -151,8 +151,8 @@ Either way, the Shizuku app should then show *"Shizuku is running"*.
 
 ### 3. Grant the permission
 
-In otso-cita's checklist, tap **DAR PERMISO** on the Shizuku row and accept the
-Shizuku permission dialog. The row turns ✓. If it toasts *"arráncala"*, the
+In otso-cita's checklist, tap **GRANT** on the Shizuku row and accept the
+Shizuku permission dialog. The row turns ✓. If it toasts *"start it"*, the
 service isn't running — redo step 2.
 
 Verify from adb: `printf '{"cmd":"airplane","on":true}\n' | nc 127.0.0.1 7913`
@@ -163,15 +163,15 @@ just without fresh IPs after WAF blocks.
 ## Config (on the main screen)
 
 Selectors persist to SharedPreferences and are read at each START:
-- **Provincia** — sets the ICP `p=` code (INE province code).
-- **Identificador** — *Certificado* (drives *Access eIdentifier* + cert dialog)
+- **Province** — sets the ICP `p=` code (INE province code).
+- **Sign-in method** — *Certificate* (drives *Access eIdentifier* + cert dialog)
   or *Cl@ve permanente* (opens the permanente card and signs in with the
   password Chrome has saved — see Prerequisites).
-- **Nacionalidad** — the *País de nacionalidad* selected on the form.
-- **Certificado (apellido / subcadena)** — when Chrome's cert chooser offers
-  several certificates, the bot picks the one whose entry contains this text
-  (e.g. your surname), then confirms.
-- **Reservar automáticamente** (checkbox, on by default) — whether the bot
+- **Nationality** — the *País de nacionalidad* selected on the form.
+- **Certificate (surname / text to pick it by)** — when Chrome's cert chooser
+  offers several certificates, the bot picks the one whose entry contains this
+  text (e.g. your surname), then confirms.
+- **Book automatically** (checkbox, on by default) — whether the bot
   completes the booking itself once citas appear. Untick it to have the bot
   alert + stop the moment citas exist, so you do the booking by hand in Chrome.
 
@@ -180,7 +180,7 @@ Selectors persist to SharedPreferences and are read at each START:
 Open the **otso-cita** app → set the config selectors → **START**. The on-screen
 log mirrors every step; press **STOP** to end. It alerts as soon as citas
 appear and stops itself when the booking is done (or right at the alert, if
-**Reservar automáticamente** is off).
+**Book automatically** is off).
 
 From adb (debugging), the same controls are on the socket:
 

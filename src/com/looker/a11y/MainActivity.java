@@ -66,19 +66,19 @@ public class MainActivity extends Activity {
             "REINO UNIDO", "REPUBLICA DOMINICANA", "RUMANIA", "RUSIA", "SENEGAL", "TURQUIA",
             "UCRANIA", "URUGUAY", "VENEZUELA"};
 
-    private static final String[] AUTH_LABELS = {"Certificado", "Cl@ve permanente"};
+    private static final String[] AUTH_LABELS = {"Certificate", "Cl@ve permanente"};
 
-    // Setup steps that have their own notice (accesibilidad, Shizuku, Whisper)
+    // Setup steps that have their own notice (accessibility, Shizuku, Whisper)
     // are NOT repeated here: the notice appears only while that piece is missing.
     private static final String HELP_TEXT =
-            "1) Teléfono con DATOS MÓVILES (la rotación de IP por modo avión los necesita).\n"
-            + "2) Cl@ve permanente: entra UNA vez a mano en Chrome y deja que GUARDE la\n"
-            + "   contraseña (Chrome > Contraseñas + autocompletar). El bot nunca la almacena:\n"
-            + "   toca el campo de usuario y pulsa el botón de la hoja de credenciales de\n"
-            + "   Android; esa hoja rellena y envía el formulario (el bot no toca el botón\n"
-            + "   de la web).\n"
-            + "3) Pulsa START y deja el móvil encendido. Avisa y para cuando aparece una cita.\n"
-            + "Lo que falte por configurar aparece más abajo con su botón.";
+            "1) Phone on MOBILE DATA (airplane-mode IP rotation needs it).\n"
+            + "2) Cl@ve permanente: sign in ONCE by hand in Chrome and let it SAVE the\n"
+            + "   password (Chrome > Passwords + autofill). The bot never stores it:\n"
+            + "   it taps the username field and presses the button of Android's\n"
+            + "   credential sheet; that sheet fills in and submits the form (the bot\n"
+            + "   never touches the page's own button).\n"
+            + "3) Press START and leave the phone on. It alerts when a cita appears.\n"
+            + "Anything still unconfigured shows up below with its own button.";
 
     private TextView logView;
     private ScrollView logScroll;
@@ -129,24 +129,25 @@ public class MainActivity extends Activity {
         LookerAccessibilityService svc = LookerAccessibilityService.getInstance();
         boolean connected = svc != null;
         boolean running = connected && svc.citaRunning();
-        status.setText(running ? "Cita bot: EN MARCHA"
-                : connected ? "Cita bot: parado" : "Cita bot: parado — falta la accesibilidad");
+        status.setText(running ? "Cita bot: RUNNING"
+                : connected ? "Cita bot: stopped" : "Cita bot: stopped — accessibility is off");
         status.setTextColor(running ? OK : (connected ? MUTED : BAD));
         startBtn.setEnabled(!running);
         stopBtn.setEnabled(running);
 
-        a11yCheck.set(connected, "Actívalo en Ajustes › Accesibilidad › otso-cita.");
+        a11yCheck.set(connected, "Turn it on in Settings › Accessibility › otso-cita.");
 
         boolean shInstalled = Priv.shizukuInstalled(this);
         boolean shAlive = shInstalled && Priv.shizukuAlive();
         boolean shOk = shAlive && Priv.shizukuPermitted();
-        shizukuCheck.set(shOk, !shInstalled ? "No está instalada."
-                        : shAlive ? "Falta darle permiso." : "No está en marcha (arráncalo por adb).",
-                !shInstalled ? "INSTALAR" : "DAR PERMISO");
+        shizukuCheck.set(shOk, !shInstalled ? "Not installed."
+                        : shAlive ? "Permission not granted yet."
+                        : "Not running (start it via wireless debugging or adb).",
+                !shInstalled ? "INSTALL" : "GRANT");
 
         String ws = Whisper.status();
         boolean wOk = Whisper.modelPresent(this) && !ws.contains("failed");
-        whisperCheck.set(wOk, "Modelo de voz para el captcha (~514 MB, una vez): " + ws + ".");
+        whisperCheck.set(wOk, "Speech model for the voice captcha (~514 MB, one-time): " + ws + ".");
 
         // a11y + Shizuku + Whisper are one-time setup: while any is missing,
         // the checklist is the ONLY thing on screen.
@@ -199,7 +200,7 @@ public class MainActivity extends Activity {
         // ---- config selectors ----
         addSection(mainScreen, "Cita");
 
-        addLabel(mainScreen, "Provincia");
+        addLabel(mainScreen, "Province");
         Spinner provSpin = new Spinner(this);
         provSpin.setAdapter(adapter(PROV_NAMES));
         int provIdx = indexOf(PROV_NAMES, Cfg.provinceName(this));
@@ -210,7 +211,7 @@ public class MainActivity extends Activity {
         }));
         mainScreen.addView(provSpin);
 
-        addLabel(mainScreen, "Identificador");
+        addLabel(mainScreen, "Sign-in method");
         Spinner authSpin = new Spinner(this);
         authSpin.setAdapter(adapter(AUTH_LABELS));
         authSpin.setSelection(Cfg.auth(this).equals("clave") ? 1 : 0);
@@ -220,7 +221,7 @@ public class MainActivity extends Activity {
         }));
         mainScreen.addView(authSpin);
 
-        addLabel(mainScreen, "Nacionalidad");
+        addLabel(mainScreen, "Nationality");
         Spinner ctrySpin = new Spinner(this);
         ctrySpin.setAdapter(adapter(COUNTRIES));
         int ctryIdx = indexOf(COUNTRIES, Cfg.country(this));
@@ -229,11 +230,11 @@ public class MainActivity extends Activity {
                 Cfg.set(this, Cfg.K_COUNTRY, COUNTRIES[pos])));
         mainScreen.addView(ctrySpin);
 
-        certLabel = addLabel(mainScreen, "Certificado (apellido / subcadena para elegirlo)");
+        certLabel = addLabel(mainScreen, "Certificate (surname / text to pick it by)");
         certEdit = new EditText(this);
         certEdit.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS);
         certEdit.setSingleLine(true);
-        certEdit.setHint("p.ej. tu apellido");
+        certEdit.setHint("e.g. your surname");
         certEdit.setText(Cfg.certMatch(this));
         mainScreen.addView(certEdit);
         // Only meaningful for the certificate path; Cl@ve permanente signs in with
@@ -241,30 +242,30 @@ public class MainActivity extends Activity {
         showCertField(!Cfg.auth(this).equals("clave"));
 
         CheckBox autoBookBox = new CheckBox(this);
-        autoBookBox.setText("Reservar automáticamente");
+        autoBookBox.setText("Book automatically");
         autoBookBox.setChecked(Cfg.autoBook(this));
         autoBookBox.setOnCheckedChangeListener((btn, checked) ->
                 Cfg.setBool(this, Cfg.K_AUTO_BOOK, checked));
         mainScreen.addView(autoBookBox);
         TextView autoBookHint = new TextView(this);
-        autoBookHint.setText("Marcado: el bot completa la reserva él solo (oficina, hueco, "
-                + "captcha, Confirmar). Desmarcado: en cuanto haya citas avisa, para y te "
-                + "deja la página abierta para reservar a mano.");
+        autoBookHint.setText("Checked: the bot completes the booking by itself (office, slot, "
+                + "captcha, confirm). Unchecked: as soon as citas appear it alerts, stops, "
+                + "and leaves the page open so you book by hand.");
         autoBookHint.setTextColor(MUTED);
         autoBookHint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         mainScreen.addView(autoBookHint);
 
-        addSection(mainScreen, "Contacto");
+        addSection(mainScreen, "Contact");
 
         addLabel(mainScreen, "Email");
         emailEdit = new EditText(this);
         emailEdit.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
         emailEdit.setSingleLine(true);
-        emailEdit.setHint("correo@ejemplo.com");
+        emailEdit.setHint("you@example.com");
         emailEdit.setText(Cfg.email(this));
         mainScreen.addView(emailEdit);
 
-        addLabel(mainScreen, "Teléfono");
+        addLabel(mainScreen, "Phone");
         phoneEdit = new EditText(this);
         phoneEdit.setInputType(InputType.TYPE_CLASS_PHONE);
         phoneEdit.setSingleLine(true);
@@ -274,16 +275,16 @@ public class MainActivity extends Activity {
 
         // Appointment-date window: the bot only books a cita whose day is within
         // [desde, hasta] (inclusive). Empty = no bound on that side.
-        addSection(mainScreen, "Fechas aceptables");
+        addSection(mainScreen, "Acceptable dates");
         TextView dateHint = new TextView(this);
-        dateHint.setText("Sólo reserva citas dentro de este margen. Vacío = sin límite.");
+        dateHint.setText("Only books citas within this window. Empty = no limit.");
         dateHint.setTextColor(MUTED);
         dateHint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         mainScreen.addView(dateHint);
 
-        addLabel(mainScreen, "Cita desde");
+        addLabel(mainScreen, "Earliest date");
         minDateEdit = addDateRow(mainScreen, true);
-        addLabel(mainScreen, "Cita hasta");
+        addLabel(mainScreen, "Latest date");
         maxDateEdit = addDateRow(mainScreen, false);
         setDate(true, Cfg.minDate(this));
         setDate(false, Cfg.maxDate(this));
@@ -324,37 +325,37 @@ public class MainActivity extends Activity {
         // ---- stats: uptime / intentos / rotaciones IP / citas encontradas,
         // with the found-citas list tucked behind a tap (same collapsible
         // pattern as "Cómo se usa" / the log pane). ----
-        addSection(mainScreen, "Estadísticas");
+        addSection(mainScreen, "Statistics");
         addStats(mainScreen);
 
         // ---- setup checklist: accesibilidad · Shizuku · Whisper. One-time setup
         // that gates the whole screen — see refresh()'s coreDone check. Each row
         // shows ✓ when done, or ○ + a fix button. ----
-        prepSection = addSection(checklistScreen, "Preparación");
+        prepSection = addSection(checklistScreen, "Setup");
         setupBox = new LinearLayout(this);
         setupBox.setOrientation(LinearLayout.VERTICAL);
         checklistScreen.addView(setupBox, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        a11yCheck = addCheck(setupBox, "Accesibilidad", "ACTIVAR",
+        a11yCheck = addCheck(setupBox, "Accessibility", "ENABLE",
                 v -> startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)));
 
-        shizukuCheck = addCheck(setupBox, "Shizuku (rotación de IP)", "DAR PERMISO",
+        shizukuCheck = addCheck(setupBox, "Shizuku (IP rotation)", "GRANT",
                 v -> {
                     if (!Priv.shizukuInstalled(this)) {
                         openPlayStore(Priv.SHIZUKU_PACKAGE);
                         return;
                     }
                     if (!Priv.shizukuAlive()) {
-                        toast("Instala la app Shizuku y arráncala (adb), luego reintenta");
+                        toast("Install the Shizuku app and start it, then retry");
                         return;
                     }
                     Priv.requestPermission(SHIZUKU_REQ);
                 });
 
-        whisperCheck = addCheck(setupBox, "Whisper (captcha de voz)", "DESCARGAR",
+        whisperCheck = addCheck(setupBox, "Whisper (voice captcha)", "DOWNLOAD",
                 v -> {
-                    toast("Descargando el modelo de whisper (~514MB)…");
+                    toast("Downloading the Whisper model (~514 MB)…");
                     new Thread(() -> Whisper.ensureLoaded(this)).start();
                 });
 
@@ -386,7 +387,7 @@ public class MainActivity extends Activity {
         logTitle.setPadding(0, dp(4), 0, dp(4));
         logHeader.addView(logTitle, weightedWide());
         logToBottom = new TextView(this);
-        logToBottom.setText("bajar ↓");
+        logToBottom.setText("bottom ↓");
         logToBottom.setTextColor(MUTED);
         logToBottom.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
         logToBottom.setPadding(dp(8), dp(4), 0, dp(4));
@@ -510,7 +511,7 @@ public class MainActivity extends Activity {
     }
 
     private void applyHelpState() {
-        helpHeader.setText(helpOpen ? "▾  Cómo se usa" : "▸  Cómo se usa");
+        helpHeader.setText(helpOpen ? "▾  How to use" : "▸  How to use");
         helpBody.setVisibility(helpOpen ? View.VISIBLE : View.GONE);
     }
 
@@ -549,15 +550,15 @@ public class MainActivity extends Activity {
         int ipReloads = CitaBot.totalIpReloads();
         java.util.List<CitaBot.FoundCita> citas = CitaBot.foundCitas();
 
-        statsHeader.setText((statsOpen ? "▾  " : "▸  ") + uptime + " trabajando · " + attempts
-                + " intentos · " + ipReloads + " rotaciones IP · " + citas.size() + " citas encontradas");
+        statsHeader.setText((statsOpen ? "▾  " : "▸  ") + uptime + " running · " + attempts
+                + " attempts · " + ipReloads + " IP rotations · " + citas.size() + " citas found");
 
         if (citas.size() == lastCitasShown) return;
         lastCitasShown = citas.size();
         statsList.removeAllViews();
         if (citas.isEmpty()) {
             TextView empty = new TextView(this);
-            empty.setText("Aún no se ha encontrado ninguna cita.");
+            empty.setText("No citas found yet.");
             empty.setTextColor(MUTED);
             empty.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
             statsList.addView(empty);
@@ -574,7 +575,7 @@ public class MainActivity extends Activity {
             row.setText(when.format(new Date(c.whenMs)) + " · " + c.office
                     + (c.dateStr.isEmpty() ? "" : " · " + c.dateStr)
                     + (c.time.isEmpty() ? "" : " " + c.time)
-                    + (c.inRange ? "" : " (fuera de rango)"));
+                    + (c.inRange ? "" : " (out of range)"));
             statsList.addView(row);
         }
     }
@@ -593,13 +594,13 @@ public class MainActivity extends Activity {
         e.setFocusableInTouchMode(false);
         e.setKeyListener(null);          // typing is impossible: calendar only
         e.setClickable(true);
-        e.setHint("cualquier fecha — toca para elegir");
+        e.setHint("any date — tap to pick");
         e.setOnClickListener(v -> pickDate(isMin));
         r.addView(e, weightedWide());
 
         Button clear = new Button(this);
         clear.setText("✕");
-        clear.setContentDescription("Quitar la fecha");
+        clear.setContentDescription("Clear the date");
         clear.setOnClickListener(v -> setDate(isMin, ""));
         r.addView(clear);
 
@@ -639,8 +640,8 @@ public class MainActivity extends Activity {
         d.getDatePicker().setMinDate(lower);
         if (hasUpper) d.getDatePicker().setMaxDate(upper);
 
-        d.setTitle(isMin ? "Cita desde" : "Cita hasta");
-        d.setButton(DialogInterface.BUTTON_NEUTRAL, "Sin límite",
+        d.setTitle(isMin ? "Earliest date" : "Latest date");
+        d.setButton(DialogInterface.BUTTON_NEUTRAL, "No limit",
                 (dlg, which) -> setDate(isMin, ""));
         d.show();
     }
@@ -670,7 +671,7 @@ public class MainActivity extends Activity {
                 minDateEdit.setText("");
                 Cfg.set(this, Cfg.K_MIN_DATE, "");
             }
-            toast("La otra fecha quedaba fuera de rango: se ha quitado");
+            toast("The other date fell outside the range and was cleared");
         }
     }
 
@@ -892,7 +893,7 @@ public class MainActivity extends Activity {
                 startActivity(new Intent(Intent.ACTION_VIEW,
                         Uri.parse("https://play.google.com/store/apps/details?id=" + pkg)));
             } catch (ActivityNotFoundException e2) {
-                toast("No se encontró Play Store ni un navegador. Instala " + pkg + " manualmente.");
+                toast("Neither Play Store nor a browser found. Install " + pkg + " manually.");
             }
         }
     }

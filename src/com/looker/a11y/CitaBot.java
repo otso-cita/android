@@ -228,7 +228,7 @@ class CitaBot implements Runnable {
         // fighting-over-the-page pathology.
         if (running || (thread != null && thread.isAlive())) {
             log(running ? "already running"
-                    : "run anterior aún terminando (transcripción en curso); reintenta en unos segundos");
+                    : "previous run still winding down (transcription in progress); retry in a few seconds");
             return;
         }
         running = true;
@@ -370,22 +370,22 @@ class CitaBot implements Runnable {
         loadConfig();
         recordedCitas.clear();   // fresh run: re-list whatever citas are out there
         log("cita bot started (toma de huellas · " + provinceName + ") auth=" + authMethod
-                + (certMatch.isEmpty() ? "" : " cert~'" + certMatch + "'") + " país=" + country
-                + (dateWindowSet() ? " fechas=[" + (minDate > 0 ? minDate : "…") + ".."
+                + (certMatch.isEmpty() ? "" : " cert~'" + certMatch + "'") + " country=" + country
+                + (dateWindowSet() ? " dates=[" + (minDate > 0 ? minDate : "…") + ".."
                         + (maxDate > 0 ? maxDate : "…") + "]" : "")
-                + (autoBook ? "" : " reserva=manual"));
+                + (autoBook ? "" : " booking=manual"));
         int attempt = 0;
         while (running) {
             attempt++;
             TOTAL_ATTEMPTS.incrementAndGet();
-            log("===== Intento #" + attempt + " =====");
+            log("===== Attempt #" + attempt + " =====");
             try {
                 // The first attempt runs on the current IP immediately; IP is
                 // rotated AFTER a failed procedure, before the next retry — so
                 // the fresh IP is what the next attempt uses, and we skip the
                 // airplane dance when we actually found a cita.
                 String result = runAttempt();
-                log("resultado intento: " + result);
+                log("attempt result: " + result);
                 if (!running) break;
                 if (result.equals("cita")) {
                     alertCita();
@@ -397,12 +397,12 @@ class CitaBot implements Runnable {
                 // password won't appear on its own. Stop and say what to fix.
                 if (result.equals("clave_error") || result.equals("clave_nocreds")) {
                     log(result.equals("clave_error")
-                            ? "⛔ Cl@ve rechazó el acceso (usuario/contraseña incorrectos o cuenta "
-                            + "bloqueada). Bot parado: entra a mano, arréglalo y vuelve a guardar la "
-                            + "contraseña en Chrome."
-                            : "⛔ El navegador no rellenó Cl@ve. Bot parado: entra UNA vez a mano en "
-                            + "Cl@ve desde Chrome, guarda usuario+contraseña en el gestor y activa "
-                            + "el autocompletado.");
+                            ? "⛔ Cl@ve rejected the sign-in (wrong username/password or blocked "
+                            + "account). Bot stopped: sign in by hand, fix it, and let Chrome "
+                            + "save the password again."
+                            : "⛔ The browser didn't fill in the Cl@ve form. Bot stopped: sign in to "
+                            + "Cl@ve ONCE by hand in Chrome, save username+password in the password "
+                            + "manager, and turn autofill on.");
                     running = false;
                     break;
                 }
@@ -410,14 +410,14 @@ class CitaBot implements Runnable {
                 // site's cookies/storage in Chrome and the public IP — and go
                 // straight into the next attempt.
                 if (result.equals("waf")) {
-                    log("⛔ WAF. Limpio los datos del sitio en Chrome y roto la IP; reintento ya.");
+                    log("⛔ WAF. Wiping the site's data in Chrome and rotating the IP; retrying now.");
                     clearSiteData();
                     if (!running) break;
                     // Wi-Fi off first: airplane-mode rotation only changes the IP
                     // on mobile data, so Wi-Fi would pin the same (blocked) IP.
                     if (Priv.shizukuReady()) {
                         boolean off = Priv.setWifi(false);
-                        log("  Wi-Fi OFF (para forzar datos móviles) -> " + (off ? "ok" : "FAIL"));
+                        log("  Wi-Fi OFF (to force mobile data) -> " + (off ? "ok" : "FAIL"));
                     }
                     if (!rotateIp()) {
                         // Same IP as before (Shizuku off, Wi-Fi, or the carrier
@@ -426,8 +426,8 @@ class CitaBot implements Runnable {
                         // were no citas instead.
                         long w = RETRY_NO_CITA_MS[0]
                                 + rnd.nextInt(RETRY_NO_CITA_MS[1] - RETRY_NO_CITA_MS[0]);
-                        log("  la IP no cambió; espero " + (w / 60000f)
-                                + " min antes de reintentar");
+                        log("  IP didn't change; waiting " + (w / 60000f)
+                                + " min before retrying");
                         sleepMs(w);
                     }
                     continue;
@@ -435,7 +435,7 @@ class CitaBot implements Runnable {
                 // No citas: no wait, no IP rotation — go straight back to the
                 // entry URL for the next attempt.
                 if (result.equals("no_cita")) {
-                    log("Sin citas. Reintento inmediato desde la URL de entrada.");
+                    log("No citas. Retrying immediately from the entry URL.");
                     continue;
                 }
                 // Any other non-cita outcome (stuck/expired/sslerror) -> rotate
@@ -444,7 +444,7 @@ class CitaBot implements Runnable {
                 if (!running) break;
                 long wait = RETRY_NO_CITA_MS[0]
                         + rnd.nextInt(RETRY_NO_CITA_MS[1] - RETRY_NO_CITA_MS[0]);
-                log("Sin citas (" + result + "). Espera " + (wait / 60000f) + " min.");
+                log("No citas (" + result + "). Waiting " + (wait / 60000f) + " min.");
                 sleepMs(wait);
             } catch (Exception e) {
                 log("Error: " + e);
@@ -465,20 +465,20 @@ class CitaBot implements Runnable {
      *  that to decide whether retrying at once is safe. */
     private boolean rotateIp() {
         if (!Priv.shizukuAlive()) {
-            log("rotación IP omitida: Shizuku no está activo (instala/arranca Shizuku)");
+            log("IP rotation skipped: Shizuku is not active (install/start Shizuku)");
             return false;
         }
         if (!Priv.shizukuPermitted()) {
-            log("rotación IP omitida: falta permiso Shizuku (concédelo desde la app)");
+            log("IP rotation skipped: Shizuku permission missing (grant it in the app)");
             return false;
         }
         String ipBefore = Priv.publicIp();
-        log("rotando IP (Shizuku): modo avión ON→OFF. IP actual: " + ipBefore);
+        log("rotating IP (Shizuku): airplane mode ON→OFF. Current IP: " + ipBefore);
         boolean on = Priv.setAirplane(true);
-        log("  modo avión ON -> " + (on ? "ok" : "FAIL") + " (estado=" + Priv.airplaneState(svc) + ")");
+        log("  airplane mode ON -> " + (on ? "ok" : "FAIL") + " (state=" + Priv.airplaneState(svc) + ")");
         sleepMs(3000);
         boolean off = Priv.setAirplane(false);
-        log("  modo avión OFF -> " + (off ? "ok" : "FAIL") + " (estado=" + Priv.airplaneState(svc) + ")");
+        log("  airplane mode OFF -> " + (off ? "ok" : "FAIL") + " (state=" + Priv.airplaneState(svc) + ")");
         // Wait for mobile data to reattach, then read the new public IP.
         String ipAfter = null;
         for (int i = 0; i < 4 && running; i++) {
@@ -487,8 +487,8 @@ class CitaBot implements Runnable {
             if (ipAfter != null) break;
         }
         boolean changed = ipAfter != null && !ipAfter.equals(ipBefore);
-        log("  IP tras rotación: " + ipAfter + (changed ? " (cambiada ✓)"
-                : ipAfter == null ? " (sin conectividad aún)" : " (sin cambio)"));
+        log("  IP after rotation: " + ipAfter + (changed ? " (changed ✓)"
+                : ipAfter == null ? " (no connectivity yet)" : " (unchanged)"));
         if (changed) TOTAL_IP_RELOADS.incrementAndGet();
         return changed;
     }
@@ -514,17 +514,17 @@ class CitaBot implements Runnable {
             if (icon != null) break;
         }
         if (icon == null) {
-            log("  no encontré el icono de info de página en Chrome; sigo sin limpiar");
+            log("  couldn't find Chrome's page-info icon; continuing without the wipe");
             return;
         }
         int[] c = center(icon);
         if (c == null) return;
         svc.botTap(c[0], c[1]);
-        log("  Chrome: abro la info de la página");
+        log("  Chrome: opening the page-info bubble");
         sleepMs(1200);
 
         if (!tapNative(COOKIES_ROW_LABELS, false)) {
-            log("  no encontré 'Cookies y datos del sitio'; cierro la burbuja");
+            log("  couldn't find 'Cookies y datos del sitio'; closing the bubble");
             backOut(2);
             return;
         }
@@ -538,8 +538,8 @@ class CitaBot implements Runnable {
             confirmed = tapNative(CONFIRM_DELETE_LABELS, true);
             sleepMs(800);
         }
-        log(confirmed ? "  datos del sitio ICP+ borrados ✓"
-                : "  borrado sin diálogo de confirmación (puede haber sido directo)");
+        log(confirmed ? "  ICP+ site data wiped ✓"
+                : "  wipe ended without a confirmation dialog (may have been direct)");
         backOut(3);
     }
 
@@ -573,7 +573,7 @@ class CitaBot implements Runnable {
         int[] c = center(best);
         if (c == null) return false;
         boolean ok = svc.botTap(c[0], c[1]);
-        log("    Chrome: toco " + q(best.optString("text", best.optString("res_id", "?")))
+        log("    Chrome: tapping " + q(best.optString("text", best.optString("res_id", "?")))
                 + " -> " + (ok ? "OK" : "FAIL"));
         return ok;
     }
@@ -587,12 +587,12 @@ class CitaBot implements Runnable {
         try {
             svc.startActivity(i);
         } catch (ActivityNotFoundException e) {
-            log("  Chrome no encontrado; abro con el navegador por defecto");
+            log("  Chrome not found; opening with the default browser");
             i.setPackage(null);
             try {
                 svc.startActivity(i);
             } catch (ActivityNotFoundException e2) {
-                log("  no hay navegador para abrir la URL: " + e2);
+                log("  no browser available to open the URL: " + e2);
             }
         }
         sleep(D_PAGELOAD);
@@ -614,7 +614,7 @@ class CitaBot implements Runnable {
             // still-loading page is the "refreshes many times" pathology.
             String url = currentUrl();
             String state = settle();
-            log("  paso " + step + ": estado=" + state + " (url=" + shortUrl(url) + ")");
+            log("  step " + step + ": state=" + state + " (url=" + shortUrl(url) + ")");
 
             switch (state) {
                 case "waf":
@@ -642,8 +642,8 @@ class CitaBot implements Runnable {
                         // Filled but not advancing: ambiguous (submit button missed,
                         // slow page…). Restart the attempt rather than stopping the
                         // bot — a genuinely wrong password comes back as clave_error.
-                        log("    el formulario de Cl@ve no avanza tras " + (claveLogins - 1)
-                                + " intentos con la hoja de credenciales; reinicio el intento");
+                        log("    the Cl@ve form isn't advancing after " + (claveLogins - 1)
+                                + " credential-sheet tries; restarting the attempt");
                         return "stuck";
                     }
                     if (!claveLogin()) return "clave_nocreds";
@@ -651,7 +651,7 @@ class CitaBot implements Runnable {
                     continue;
                 case "sslerror":
                     sslerrors++;
-                    log("    interstitial TLS del navegador; recargando (" + sslerrors + "/3)");
+                    log("    browser TLS interstitial; reloading (" + sslerrors + "/3)");
                     if (sslerrors >= 3) return "sslerror";
                     openEntry();
                     sleep(D_PAGELOAD);
@@ -661,7 +661,7 @@ class CitaBot implements Runnable {
                     click("Solicitar Cita");
                     sleep(D_PAGELOAD);
                     String rs = settle();   // wait out the (slow) result page
-                    log("    resultado Solicitar Cita -> " + rs);
+                    log("    'Solicitar Cita' result -> " + rs);
                     if (rs.equals("no_cita")) return "no_cita";
                     if (rs.equals("waf")) return "waf";
                     if (rs.equals("expired")) {
@@ -687,7 +687,7 @@ class CitaBot implements Runnable {
                             || rs.equals("clave_platform") || rs.equals("clave_login")
                             || rs.equals("form")
                             || rs.equals("province") || rs.equals("options")) {
-                        log("    el envío rebotó a " + rs + " (no es cita); reinicio");
+                        log("    the submit bounced back to " + rs + " (not a cita); restarting");
                         return "stuck";
                     }
                     // ONLY a genuine appointment page counts as huecos. The old
@@ -707,8 +707,8 @@ class CitaBot implements Runnable {
                     if (rs.equals("sslerror")) return "sslerror";
                     // unknown / clave_wait / stuck / anything else: slow or
                     // transient, NOT a cita. Retry immediately from the entry URL.
-                    log("    tras 'Solicitar Cita' el estado fue '" + rs
-                            + "' (no reconocido como cita); reintento sin avisar");
+                    log("    after 'Solicitar Cita' the state was '" + rs
+                            + "' (not recognised as a cita); retrying without alerting");
                     return "no_cita";
                 }
                 case "unknown":
@@ -722,7 +722,7 @@ class CitaBot implements Runnable {
                         click("Acepto");
                         sleep(D_MICRO);
                     } else if (unknowns == 3) {       // single late reload attempt
-                        log("    página no reconocida; una recarga");
+                        log("    unrecognised page; one reload");
                         openEntry();
                     } else {
                         sleep(D_PAGELOAD);            // just wait, no reload
@@ -743,8 +743,8 @@ class CitaBot implements Runnable {
                     // picker on screen for the user to book by hand.
                     unknowns = 0;
                     if (!autoBook) {
-                        log("    ¡hay citas! reserva automática desactivada: paro aquí "
-                                + "para que la reserves a mano en Chrome");
+                        log("    citas available! auto-booking is off: stopping here "
+                                + "so you can book by hand in Chrome");
                         return "cita";
                     }
                     // Alert the user right now — once — so a real cita is never
@@ -767,8 +767,8 @@ class CitaBot implements Runnable {
                     // choice here too.
                     unknowns = 0;
                     if (!autoBook) {
-                        log("    reserva automática desactivada: paro y te dejo la "
-                                + "página abierta para reservar a mano");
+                        log("    auto-booking is off: stopping and leaving the page "
+                                + "open so you can book by hand");
                         return "cita";
                     }
                     doStep(state);
@@ -850,11 +850,11 @@ class CitaBot implements Runnable {
                     office = svc.botSelectRandomCoord(wh[0] / 2, wh[1] * 32 / 100);
                 }
                 lastOffice = office == null ? "(oficina?)" : office;
-                log("    oficina con cita (aleatoria): " + office);
+                log("    office with citas (random pick): " + office);
                 sleep(D_MICRO);
                 if (!click("Siguiente")) {
                     svc.botTap(wh[0] / 2, wh[1] * 385 / 1000);   // Siguiente by coord
-                    log("    tap 'Siguiente' (coordenada)");
+                    log("    tap 'Siguiente' (by coordinate)");
                 }
                 sleep(D_PAGELOAD);
                 break;
@@ -946,8 +946,8 @@ class CitaBot implements Runnable {
             if (tapButtonScroll(COPY_APPLICANT_LABELS[0])) return true;
             sleepMs(900);
         }
-        log("    ⚠ no pude pulsar 'Copiar a datos solicitante': los datos del solicitante se "
-                + "quedan vacíos y el formulario será rechazado");
+        log("    ⚠ couldn't press 'Copiar a datos solicitante': the applicant fields "
+                + "stay empty and the form will be rejected");
         return false;
     }
 
@@ -974,7 +974,7 @@ class CitaBot implements Runnable {
             return t.contains("selecciona trámite") || t.contains("selecciona tramite");
         });
         if (cont == null) {
-            log("    no encontré el contenedor 'Selecciona trámite'");
+            log("    couldn't find the 'Selecciona trámite' container");
             return;
         }
         JSONArray b = cont.optJSONArray("bounds");
@@ -985,16 +985,16 @@ class CitaBot implements Runnable {
         // the dropdown is open so BACK safely dismisses IT (not Chrome), then try
         // the upper block.
         if (svc.botSelectCoord(x, top + (h * 80 / 100), TRAMITE)) {
-            log("    trámite policía (coordenada) -> OK");
+            log("    policía trámite (by coordinate) -> OK");
             return;
         }
         svc.botGlobal("back");
         sleepMs(400);
         if (svc.botSelectCoord(x, top + (h * 55 / 100), TRAMITE)) {
-            log("    trámite (coordenada alt) -> OK");
+            log("    trámite (alt coordinate) -> OK");
             return;
         }
-        log("    no pude seleccionar el trámite policía (" + TRAMITE + ")");
+        log("    couldn't select the policía trámite (" + TRAMITE + ")");
     }
 
     /** Pick a dropdown option purely via accessibility (service `select`
@@ -1021,11 +1021,11 @@ class CitaBot implements Runnable {
         if (value == null || value.isEmpty()) return false;
         for (String lbl : labels) {
             if (svc.botSetTextAfter(lbl, value) || svc.botSetText(lbl, value)) {
-                log("    campo " + q(lbl) + " = " + q(value) + " -> OK");
+                log("    field " + q(lbl) + " = " + q(value) + " -> OK");
                 return true;
             }
         }
-        log("    no encontré campo para " + q(labels[0]));
+        log("    couldn't find a field for " + q(labels[0]));
         return false;
     }
 
@@ -1040,13 +1040,13 @@ class CitaBot implements Runnable {
         for (String lbl : EMAIL_LABELS) {
             if (svc.botSetTextAfter(lbl, email, 0)) {
                 boolean rep = svc.botSetTextAfter(lbl, email, 1);
-                log("    correo rellenado tras " + q(lbl)
-                        + (rep ? " + repetición (2º campo)" : " (sin 2º campo aquí)"));
+                log("    email filled after " + q(lbl)
+                        + (rep ? " + repeat (2nd field)" : " (no 2nd field here)"));
                 if (!rep) fillField(EMAIL2_LABELS, email);
                 return;
             }
         }
-        log("    no encontré el campo de correo " + java.util.Arrays.toString(EMAIL_LABELS));
+        log("    couldn't find the email field " + java.util.Arrays.toString(EMAIL_LABELS));
     }
 
     /** Log AND persist every appointment slot the offer page shows — oficina ·
@@ -1106,7 +1106,7 @@ class CitaBot implements Runnable {
         String key = office + "|" + yyyymmdd + "|" + time + "|" + raw;
         if (!recordedCitas.add(key)) return;   // already recorded this run
         boolean inRange = inDateRange(yyyymmdd);
-        log("    🗓 CITA ENCONTRADA [" + (inRange ? "EN RANGO" : "fuera de rango") + "]: "
+        log("    🗓 CITA FOUND [" + (inRange ? "IN RANGE" : "out of range") + "]: "
                 + office + " · " + (dateStr.isEmpty() ? "?" : dateStr)
                 + (time.isEmpty() ? "" : " " + time));
         TOTAL_CITAS_FOUND.incrementAndGet();
@@ -1122,14 +1122,14 @@ class CitaBot implements Runnable {
             java.io.FileWriter w = new java.io.FileWriter(f, true);
             if (fresh) {
                 w.write("timestamp,oficina,fecha,hora,en_rango,texto\n");
-                log("    (guardando citas en " + f.getAbsolutePath() + ")");
+                log("    (saving citas to " + f.getAbsolutePath() + ")");
             }
             w.write(String.format(Locale.US, "%tF %<tT,%s,%s,%s,%s,%s%n",
                     System.currentTimeMillis(), csv(office), csv(dateStr), csv(time),
                     inRange ? "si" : "no", csv(raw)));
             w.close();
         } catch (Exception e) {
-            log("    (no pude guardar la cita en CSV: " + e + ")");
+            log("    (couldn't save the cita to CSV: " + e + ")");
         }
     }
 
@@ -1154,7 +1154,7 @@ class CitaBot implements Runnable {
         //   A) a fixed "CITA 1/2/3" radio list (each carries its Día), or
         //   B) a month calendar + a per-day time table (free rows = "LIBRE").
         if (!selectSlot()) {
-            log("    sin hueco dentro del rango de fechas; reintento en el próximo ciclo");
+            log("    no slot within the date window; retrying next cycle");
             return;   // no bookable slot here -> caller loops / rotates IP
         }
         sleep(D_MICRO);
@@ -1162,7 +1162,7 @@ class CitaBot implements Runnable {
             String code = obtainCaptchaFromAudio();
             if (code != null && code.length() >= 4) {
                 svc.botSetTextAfter("valida el Captcha", code);
-                log("    captcha (voz) = " + q(code) + ", enviando…");
+                log("    captcha (voice) = " + q(code) + ", submitting…");
                 sleep(D_MICRO);
                 // Submit needs a REAL tap (ACTION_CLICK doesn't fire the
                 // handler), and Siguiente sits below the fold, so scroll to it.
@@ -1174,17 +1174,17 @@ class CitaBot implements Runnable {
                 handleReservaDialog();
                 sleep(D_PAGELOAD);
                 if (!currentUrl().toLowerCase(Locale.ROOT).contains("acofertarcita")) {
-                    log("    ✓ captcha aceptado — confirmando la reserva");
+                    log("    ✓ captcha accepted — confirming the booking");
                     return;
                 }
-                log("    captcha rechazado (intento " + attempt + "/5), recargando…");
+                log("    captcha rejected (try " + attempt + "/5), reloading…");
             } else {
-                log("    no pude leer el captcha por voz (intento " + attempt + "/5)");
+                log("    couldn't read the captcha from audio (try " + attempt + "/5)");
             }
             tapNode("Recargar Captcha", 2);
             sleep(D_PAGELOAD);
         }
-        log("    captcha no resuelto tras 5 intentos");
+        log("    captcha not solved after 5 tries");
     }
 
     /** Select a bookable slot within the configured date window. Returns false
@@ -1216,12 +1216,12 @@ class CitaBot implements Runnable {
             }
         }
         if (best == null) {
-            log("    lista CITA: ninguna dentro del rango de fechas");
+            log("    CITA list: none within the date window");
             return false;
         }
         int[] c = center(best);
         if (c != null && svc.botTap(c[0], c[1])) {
-            log("    slot elegido (lista): "
+            log("    slot picked (list): "
                     + q(best.optString("text", "").replaceAll("\\s+", " ").trim()));
             return true;
         }
@@ -1248,13 +1248,13 @@ class CitaBot implements Runnable {
             }
         }
         if (bestDay == null) {
-            log("    calendario: ningún día disponible dentro del rango"
+            log("    calendar: no day available within the window"
                     + (my != null ? " (" + MONTH_ES[my[1] - 1] + " " + my[0] + ")" : ""));
             return false;
         }
         int[] c = center(bestDay);
         if (c == null || !svc.botTap(c[0], c[1])) return false;
-        log("    día elegido (calendario): " + bestDay.optString("text")
+        log("    day picked (calendar): " + bestDay.optString("text")
                 + (my != null ? "/" + my[1] + "/" + my[0] : ""));
         sleep(D_PAGELOAD);
         return tapFreeTime();
@@ -1272,19 +1272,19 @@ class CitaBot implements Runnable {
             if (libre != null) {
                 int[] c = center(libre);
                 if (c != null && c[1] >= 260 && c[1] <= wh[1] - 140 && svc.botTap(c[0], c[1])) {
-                    log("    hora elegida: primera LIBRE");
+                    log("    time picked: first LIBRE row");
                     return true;
                 }
                 // In the tree but off-screen: ACTION_CLICK by text as a fallback.
                 if (svc.botClick("LIBRE")) {
-                    log("    hora elegida: LIBRE (a11y click)");
+                    log("    time picked: LIBRE (a11y click)");
                     return true;
                 }
             }
             svc.botSwipe(wh[0] / 2, wh[1] * 3 / 4, wh[0] / 2, wh[1] / 4, 350);
             sleepMs(600);
         }
-        log("    calendario: sin hora LIBRE visible para el día elegido");
+        log("    calendar: no LIBRE time visible for the picked day");
         return false;
     }
 
@@ -1333,7 +1333,7 @@ class CitaBot implements Runnable {
             return;
         }
         if (tapExact("sí") || tapExact("si") || click("Sí")) {
-            log("    diálogo '¿estás seguro?' -> SÍ");
+            log("    '¿estás seguro?' dialog -> SÍ");
             sleep(D_MICRO);
         }
     }
@@ -1350,9 +1350,9 @@ class CitaBot implements Runnable {
         });
         int[] c = center(cb);
         if (c != null && svc.botTap(c[0], c[1])) {
-            log("    consentimiento 'Estoy conforme' marcado");
+            log("    'Estoy conforme' consent ticked");
         } else {
-            log("    no encontré (o ya estaba marcado) el checkbox 'Estoy conforme'");
+            log("    'Estoy conforme' checkbox not found (or already ticked)");
         }
     }
 
@@ -1364,9 +1364,9 @@ class CitaBot implements Runnable {
                 .compile("justificante[^:]*:?\\s*([A-Z0-9]{6,})", java.util.regex.Pattern.CASE_INSENSITIVE)
                 .matcher(t);
         if (m.find()) {
-            log("🎉 CITA CONFIRMADA — Nº de justificante: " + m.group(1));
+            log("🎉 CITA CONFIRMED — justificante no.: " + m.group(1));
         } else {
-            log("🎉 CITA CONFIRMADA (justificante en pantalla/correo)");
+            log("🎉 CITA CONFIRMED (justificante on screen / by email)");
         }
     }
 
@@ -1408,7 +1408,7 @@ class CitaBot implements Runnable {
             svc.botSwipe(wh[0] / 2, wh[1] * 3 / 4, wh[0] / 2, wh[1] / 4, 350);
             sleepMs(700);
         }
-        log("    tap " + q(label) + " -> FAIL (no visible)");
+        log("    tap " + q(label) + " -> FAIL (not visible)");
         return false;
     }
 
@@ -1434,7 +1434,7 @@ class CitaBot implements Runnable {
     private String obtainCaptchaFromAudio() {
         long startMs = System.currentTimeMillis();
         if (!tapNode("Escuchar pista sonora", 4)) {
-            log("    no encontré 'Escuchar pista sonora' para revelar el reproductor del captcha");
+            log("    couldn't find 'Escuchar pista sonora' to reveal the captcha audio player");
             return null;
         }
         sleepMs(500);
@@ -1448,7 +1448,7 @@ class CitaBot implements Runnable {
                 }
             }
             if (!openedMenu) {
-                log("    no encontré el menú de opciones del reproductor de audio");
+                log("    couldn't find the audio player's options menu");
                 return null;
             }
             sleepMs(300);
@@ -1459,7 +1459,7 @@ class CitaBot implements Runnable {
                 }
             }
             if (!tappedDownload) {
-                log("    no encontré 'Download'/'Descargar' en el menú de opciones");
+                log("    couldn't find 'Download'/'Descargar' in the options menu");
                 return null;
             }
         }
@@ -1472,10 +1472,10 @@ class CitaBot implements Runnable {
             sleepMs(500);
         }
         if (audio == null) {
-            log("    no llegó el mp3 del captcha a Descargas");
+            log("    the captcha mp3 never arrived in Downloads");
             return null;
         }
-        log("    captcha descargado (" + audio.getName() + ") — transcribiendo…");
+        log("    captcha downloaded (" + audio.getName() + ") — transcribing…");
         return Whisper.readCaptcha(svc, audio.getAbsolutePath());
     }
 
@@ -1493,13 +1493,13 @@ class CitaBot implements Runnable {
         }
         for (String d : new String[]{"Download", "Descargar", "Aceptar", "OK"}) {
             if (click(d)) {
-                log("    diálogo 'descargar de nuevo' confirmado (" + d + ")");
+                log("    'download again' dialog confirmed (" + d + ")");
                 sleepMs(700);
                 return;
             }
         }
         if (tapNode("Download", 2) || tapNode("Descargar", 2)) {
-            log("    diálogo 'descargar de nuevo' confirmado (tap)");
+            log("    'download again' dialog confirmed (tap)");
             sleepMs(700);
         }
     }
@@ -1615,10 +1615,10 @@ class CitaBot implements Runnable {
         int x = wh[0] / 2;
         int y = wh[1] * CLAVE_PERM_TAP_PCT / 100;
         svc.botTap(x, y);
-        log("    no encontré la tarjeta Cl@ve permanente en el árbol a11y "
+        log("    couldn't find the Cl@ve permanente card in the a11y tree "
                 + java.util.Arrays.toString(CLAVE_PERM_LABELS)
-                + "; tap por coordenada (" + x + "," + y + ", "
-                + CLAVE_PERM_TAP_PCT + "% de alto — ajusta CLAVE_PERM_TAP_PCT si cae mal)");
+                + "; tapping by coordinate (" + x + "," + y + ", "
+                + CLAVE_PERM_TAP_PCT + "% of height — tune CLAVE_PERM_TAP_PCT if it lands wrong)");
     }
 
     // ------------- Cl@ve Permanente sign-in (Android credential sheet) -------------
@@ -1639,19 +1639,19 @@ class CitaBot implements Runnable {
      *  fix, so the caller stops the bot instead of hammering the login page. */
     private boolean claveLogin() {
         java.util.List<JSONObject> fields = webFields();
-        log("    Cl@ve permanente: " + fields.size() + " campo(s) de la página en el árbol a11y");
+        log("    Cl@ve permanente: " + fields.size() + " page field(s) in the a11y tree");
 
         // 1) focus ONE field: the user one (the sheet fills the password too).
         if (!fields.isEmpty()) {
             int[] c = center(fields.get(0));
             svc.botTap(c[0], c[1]);
-            log("    toco el campo de usuario (" + c[0] + "," + c[1] + ") y espero la hoja de "
-                    + "credenciales de Android");
+            log("    tapping the user field (" + c[0] + "," + c[1] + ") and waiting for "
+                    + "Android's credential sheet");
         } else {
             int[] wh = svc.screenSize();
             int y = wh[1] * CLAVE_USER_FIELD_PCT / 100;
             svc.botTap(wh[0] / 2, y);
-            log("    página Cl@ve no expuesta a a11y; toco el campo de usuario por coordenada ("
+            log("    Cl@ve page not exposed to a11y; tapping the user field by coordinate ("
                     + wh[0] / 2 + "," + y + ")");
         }
 
@@ -1677,13 +1677,13 @@ class CitaBot implements Runnable {
             // Autofill filled the form without offering the sheet. Do NOT press
             // the site's button: wait for the sheet on the next pass (and the
             // clave_login counter restarts the attempt if it never shows).
-            log("    el navegador ya rellenó el formulario pero no salió la hoja de "
-                    + "credenciales; espero (no pulso el botón de la web)");
+            log("    the browser already filled the form but no credential sheet "
+                    + "appeared; waiting (not pressing the page's own button)");
             return true;
         }
-        log("    ⚠ no salió la hoja de credenciales de Android y el campo sigue vacío. Entra UNA "
-                + "vez a mano en Cl@ve desde Chrome, guarda usuario+contraseña en el gestor y "
-                + "activa el autocompletado; luego vuelve a arrancar el bot.");
+        log("    ⚠ Android's credential sheet never appeared and the field is still empty. Sign "
+                + "in to Cl@ve ONCE by hand in Chrome, save username+password in the password "
+                + "manager, turn autofill on, then start the bot again.");
         return false;
     }
 
@@ -1769,10 +1769,10 @@ class CitaBot implements Runnable {
                 // 1) Select the wanted certificate (by surname/substring).
                 if (!certMatch.isEmpty() && txt.contains(certMatch.toLowerCase(Locale.ROOT))) {
                     boolean picked = svc.botClick(certMatch);
-                    log("    certificado " + q(certMatch) + " -> " + (picked ? "OK" : "FAIL"));
+                    log("    certificate " + q(certMatch) + " -> " + (picked ? "OK" : "FAIL"));
                     sleepMs(700);
                 } else if (certMatch.isEmpty()) {
-                    log("    ⚠ sin apellido configurado; no puedo elegir certificado");
+                    log("    ⚠ no surname configured; can't pick a certificate");
                 }
                 // 2) Confirm. The positive button FIRST by view id: on Android 15
                 //    this dialog hands the service a child list without
@@ -1781,12 +1781,12 @@ class CitaBot implements Runnable {
                 //    here until the loop timed out. By-id goes through the
                 //    app-side query and is locale-proof too.
                 if (svc.botClickId("android:id/button1")) {
-                    log("    diálogo certificado: click botón positivo (android:id/button1)");
+                    log("    certificate dialog: clicked positive button (android:id/button1)");
                     return;
                 }
                 for (String ok : new String[]{"SELECT", "Seleccionar", "Aceptar", "OK", "Allow"}) {
                     if (svc.botClick(ok)) {
-                        log("    diálogo certificado: click " + q(ok));
+                        log("    certificate dialog: clicked " + q(ok));
                         return;
                     }
                 }
@@ -1794,7 +1794,7 @@ class CitaBot implements Runnable {
             }
             sleepMs(1000);
         }
-        log("    no apareció diálogo de certificado (¿selección automática?)");
+        log("    no certificate dialog appeared (auto-selected?)");
     }
 
     /** Tap a dialog's POSITIVE button by geometry, for dialogs that hide it from
@@ -1814,7 +1814,7 @@ class CitaBot implements Runnable {
         JSONObject panel = findByResIdSuffix(svc.botDump(), "android:id/buttonPanel");
         JSONObject deny = findByResIdSuffix(svc.botDump(), "android:id/button2");
         if (panel == null || deny == null) {
-            log("    no encontré el panel de botones del diálogo");
+            log("    couldn't find the dialog's button panel");
             return false;
         }
         JSONArray p = panel.optJSONArray("bounds");
@@ -1832,18 +1832,18 @@ class CitaBot implements Runnable {
         if (p.optInt(2) - d.optInt(2) >= minGap) xs[n++] = (d.optInt(2) + p.optInt(2)) / 2;
         if (d.optInt(0) - p.optInt(0) >= minGap) xs[n++] = (p.optInt(0) + d.optInt(0)) / 2;
         if (n == 0) {
-            log("    no hay hueco junto a DENY: ¿diálogo de un solo botón?");
+            log("    no gap next to DENY: single-button dialog?");
             return false;
         }
         for (int i = 0; i < n && running; i++) {
             svc.botTap(xs[i], y);
             sleepMs(900);
             if (findByResIdSuffix(svc.botDump(), "android:id/button2") == null) {
-                log("    diálogo certificado: botón positivo por geometría (" + xs[i] + "," + y
+                log("    certificate dialog: positive button by geometry (" + xs[i] + "," + y
                         + ") -> OK");
                 return true;
             }
-            log("    (" + xs[i] + "," + y + ") no era el botón positivo; el diálogo sigue ahí");
+            log("    (" + xs[i] + "," + y + ") wasn't the positive button; the dialog is still there");
         }
         return false;
     }
@@ -2156,9 +2156,9 @@ class CitaBot implements Runnable {
     // ---------------- alert ----------------
 
     private void alertCita() {
-        log("🎉 ¡Hay huecos de cita! Revisa Chrome y reserva a mano AHORA.");
-        notify("¡CITA disponible!",
-                "Toma de huellas · " + provinceName + " — reserva ahora en Chrome");
+        log("🎉 Cita slots available! Check Chrome and book by hand NOW.");
+        notify("CITA available!",
+                "Toma de huellas · " + provinceName + " — book now in Chrome");
         vibrateAlert();
     }
 
@@ -2166,9 +2166,9 @@ class CitaBot implements Runnable {
      *  Unlike {@link #alertCita()} this does NOT stop the bot — it's an early
      *  heads-up so a real cita is never missed if the booking later stalls. */
     private void notifyCitaFound() {
-        log("🔔 ¡Citas disponibles! Intentando reservar automáticamente — revisa Chrome por si acaso.");
-        notify("¡Citas disponibles!",
-                "Toma de huellas · " + provinceName + " — reservando… revisa Chrome");
+        log("🔔 Citas available! Trying to book automatically — check Chrome just in case.");
+        notify("Citas available!",
+                "Toma de huellas · " + provinceName + " — booking… check Chrome");
         vibrateAlert();
     }
 
@@ -2189,7 +2189,7 @@ class CitaBot implements Runnable {
                     .build();
             nm.notify(1, n);
         } catch (Exception e) {
-            log("  no pude postear notificación: " + e);
+            log("  couldn't post the notification: " + e);
         }
     }
 

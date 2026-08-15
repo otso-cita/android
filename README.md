@@ -36,7 +36,19 @@ Chrome's labels move in a future version, adjust `COOKIES_ROW_LABELS` /
 
 ## Prerequisites on the phone
 
-- Enable the service: **Settings → Accessibility → otso-cita**.
+On first launch the app shows a **Preparación** checklist (Accesibilidad ·
+Shizuku · Whisper) and hides the main screen until all three are ✓. Each row has
+a button that takes you to the right place:
+
+- **Accesibilidad** — tap **ACTIVAR** (opens Settings → Accessibility) and
+  enable **otso-cita**.
+- **Shizuku** — install + start + grant; full steps in the next section.
+- **Whisper (captcha de voz)** — tap **DESCARGAR** to fetch the speech model
+  used to solve the voice captcha (`ggml-medium-q5_0.bin`, **~514 MB**, from
+  Hugging Face — do it on Wi-Fi). One-time download; kept in app storage.
+
+Beyond the checklist:
+
 - Phone on **mobile data** (for airplane-mode IP rotation to change the IP).
 - Your **Cl@ve digital certificate installed** in Android
   (Settings → Security → Encryption & credentials → Install a certificate). The
@@ -59,21 +71,51 @@ Chrome's labels move in a future version, adjust `COOKIES_ROW_LABELS` /
 ## Shizuku setup (for IP rotation)
 
 Airplane mode can't be toggled by a normal app on modern Android (blocked API;
-a bare secure-setting write doesn't engage the radio). We use Shizuku to run
-`cmd connectivity airplane-mode` with shell privileges.
+a bare secure-setting write doesn't engage the radio). We use
+[Shizuku](https://shizuku.rikka.app/) to run `cmd connectivity airplane-mode`
+with shell privileges. Three steps: install, **start the service**, grant the
+permission to otso-cita.
 
-1. Install the Shizuku app (Play Store or GitHub releases).
-2. Start the Shizuku service via adb (survives until reboot). Simplest:
-   ```bash
-   adb shell "$(pm path moe.shizuku.privileged.api | sed -n 's/.*: *//p' | \
-     head -1 | xargs dirname)/lib/arm64/libshizuku.so"
-   ```
-   (or use Shizuku's "Start via Wireless debugging" — no PC needed after pairing).
-3. In the otso-cita app, tap **SHIZUKU** to grant permission. The status line reads
-   *"Shizuku: ready (IP rotation enabled)"* when set.
+### 1. Install
+
+Install the **Shizuku** app from the Play Store (or its GitHub releases). The
+otso-cita checklist button opens the Play Store page if it's missing.
+
+### 2. Start the Shizuku service
+
+Installing is not enough — the service must be *started* with shell privileges,
+and **it dies on every reboot**, so redo this step after restarting the phone.
+Two ways:
+
+**A. Wireless debugging (no PC needed)** — Android 11+:
+
+1. Enable **Developer options**: Settings → About phone → tap **Build number**
+   7 times.
+2. Settings → System → Developer options → enable **Wireless debugging**
+   (phone must be on Wi-Fi).
+3. Open the Shizuku app → **Start via Wireless debugging** → follow its pairing
+   flow (it walks you through *Pair device with pairing code* in Developer
+   options). Pairing is one-time; after a reboot you only re-tap **Start**.
+
+**B. From a PC over adb** (USB debugging enabled):
+
+```bash
+adb shell "$(pm path moe.shizuku.privileged.api | sed -n 's/.*: *//p' | \
+  head -1 | xargs dirname)/lib/arm64/libshizuku.so"
+```
+
+Either way, the Shizuku app should then show *"Shizuku is running"*.
+
+### 3. Grant the permission
+
+In otso-cita's checklist, tap **DAR PERMISO** on the Shizuku row and accept the
+Shizuku permission dialog. The row turns ✓. If it toasts *"arráncala"*, the
+service isn't running — redo step 2.
 
 Verify from adb: `printf '{"cmd":"airplane","on":true}\n' | nc 127.0.0.1 7913`
-(then `"on":false`) — returns `{"ok":true,"state":1,...}`.
+(then `"on":false`) — returns `{"ok":true,"state":1,...}`. The bot skips IP
+rotation (and logs it) whenever Shizuku isn't ready, so the hunt still runs —
+just without fresh IPs after WAF blocks.
 
 ## Config (on the main screen)
 
@@ -107,7 +149,6 @@ printf '{"cmd":"cita_stop"}\n'  | nc 127.0.0.1 7913
 No Gradle — plain SDK command-line tools:
 
 ```bash
-cd /mnt/dev/looker/android
 ./build.sh          # needs a JDK (javac) + Android SDK (build-tools 34, android-34)
 adb install -r build/apk/looker-signed.apk
 ```
@@ -130,6 +171,17 @@ label constants at the top of `CitaBot.java` if a step fails:
   if both panels share text, fall back to tapping the leftmost by bounds.
 - **Certificate dialog** — `CERT_LABELS` / `CERT_OK_LABELS` cover the common
   button texts; add your device's exact wording if needed.
+
+## Support / donate
+
+If this bot saved you a trip to the extranjería (or a few weeks of F5), you can
+say thanks here:
+
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-support%20me-ff5e5b?logo=ko-fi&logoColor=white)](https://ko-fi.com/otsocita)
+
+<https://ko-fi.com/otsocita>
+
+Entirely optional — the app is free, no features are locked.
 
 ## WAF / anti-bot notes
 

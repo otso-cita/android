@@ -83,6 +83,7 @@ fn main() -> Result<()> {
 
     println!("\n[4/8] Installing both APKs (can take a minute or two on older phones, especially \
               the first install \u{2014} this is not stuck)...");
+    stop_stale_processes(&adb);
     adb.install(&otso_apk).context("installing otso-cita")?;
     println!("      otso-cita installed.");
     adb.install(&shizuku_apk).context("installing Shizuku")?;
@@ -136,6 +137,18 @@ fn main() -> Result<()> {
     Ok(())
 }
 
+/// Kill any running otso-cita / Shizuku processes before (re)installing.
+/// `shizuku_server` runs detached under the shell UID, so force-stopping the
+/// Shizuku app alone doesn't touch it \u{2014} a stale one left over from a
+/// previous session can wedge the install or leave the app showing Shizuku
+/// as "not running" even after a clean reinstall. Best-effort: harmless if
+/// nothing is running yet (first install).
+fn stop_stale_processes(adb: &Adb) {
+    adb.shell(&format!("am force-stop {OTSO_PACKAGE}")).ok();
+    adb.shell(&format!("am force-stop {SHIZUKU_PACKAGE}")).ok();
+    adb.shell("pkill -f shizuku_server").ok();
+}
+
 fn enable_accessibility(adb: &Adb) -> Result<()> {
     let current = adb
         .shell("settings get secure enabled_accessibility_services")
@@ -171,6 +184,7 @@ fn start_shizuku(adb: &Adb) -> Result<()> {
         .map(|(d, _)| d)
         .unwrap_or(apk_path);
     let starter = format!("{dir}/lib/arm64/libshizuku.so");
+    adb.shell("pkill -f shizuku_server").ok();
     adb.shell(&starter)
         .context("starting Shizuku's binary over adb shell")?;
     println!("      Shizuku start command sent.");

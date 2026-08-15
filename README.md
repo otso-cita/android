@@ -13,7 +13,13 @@ no features are locked.
    and open it to install (Android will ask you to allow installing from
    unknown sources — accept).
 2. **Open otso-cita** — it shows a checklist. Tap each button and follow along:
-   - **Accesibilidad** → tap **ACTIVAR** and switch on **otso-cita**.
+   - **Accesibilidad** → tap **ACTIVAR** and switch on **otso-cita**. On
+     Android 13+ the switch may be greyed out with a *"Restricted setting"* /
+     *"Ajuste restringido"* message (normal for apps installed outside the
+     Play Store). Fix: Settings → Apps → **otso-cita** → tap **⋮** (top
+     right) → **Allow restricted settings** / *Permitir ajustes
+     restringidos*, then try again —
+     [Google's help page](https://support.google.com/android/answer/12623953?p=restricted_settings).
    - **Shizuku** → install it from the Play Store, then start it using
      **Wireless debugging** (the Shizuku app walks you through it, no PC
      needed — details in [Shizuku setup](#shizuku-setup-for-ip-rotation)),
@@ -75,7 +81,10 @@ Shizuku · Whisper) and hides the main screen until all three are ✓. Each row 
 a button that takes you to the right place:
 
 - **Accesibilidad** — tap **ACTIVAR** (opens Settings → Accessibility) and
-  enable **otso-cita**.
+  enable **otso-cita**. If Android blocks it with *"Restricted setting"*
+  (Android 13+ does this for sideloaded apps), allow it first via
+  Settings → Apps → otso-cita → **⋮** → **Allow restricted settings** — see
+  [Google's instructions](https://support.google.com/android/answer/12623953?p=restricted_settings).
 - **Shizuku** — install + start + grant; full steps in the next section.
 - **Whisper (captcha de voz)** — tap **DESCARGAR** to fetch the speech model
   used to solve the voice captcha (`ggml-medium-q5_0.bin`, **~514 MB**, from

@@ -21,6 +21,7 @@ import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -246,6 +247,20 @@ public class MainActivity extends Activity {
         // Only meaningful for the certificate path; Cl@ve permanente signs in with
         // the password the browser has saved (nothing to configure here).
         showCertField(!Cfg.auth(this).equals("clave"));
+
+        CheckBox autoBookBox = new CheckBox(this);
+        autoBookBox.setText("Reservar automáticamente");
+        autoBookBox.setChecked(Cfg.autoBook(this));
+        autoBookBox.setOnCheckedChangeListener((btn, checked) ->
+                Cfg.setBool(this, Cfg.K_AUTO_BOOK, checked));
+        mainScreen.addView(autoBookBox);
+        TextView autoBookHint = new TextView(this);
+        autoBookHint.setText("Marcado: el bot completa la reserva él solo (oficina, hueco, "
+                + "captcha, Confirmar). Desmarcado: en cuanto haya citas avisa, para y te "
+                + "deja la página abierta para reservar a mano.");
+        autoBookHint.setTextColor(MUTED);
+        autoBookHint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        mainScreen.addView(autoBookHint);
 
         addSection(mainScreen, "Contacto");
 

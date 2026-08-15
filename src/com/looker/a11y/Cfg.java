@@ -18,6 +18,10 @@ final class Cfg {
     // bound). The bot only books a cita whose day falls within [min, max].
     static final String K_MIN_DATE = "min_date";
     static final String K_MAX_DATE = "max_date";
+    // Whether the bot completes the booking itself (office → slot → captcha →
+    // Confirmar). When off it alerts and stops as soon as citas appear, leaving
+    // the page open so the user books by hand in Chrome.
+    static final String K_AUTO_BOOK = "auto_book";
     // UI-only: whether the "cómo se usa" block on MainActivity is expanded.
     static final String K_HELP_OPEN = "help_open";
     // UI-only: whether the log pane at the bottom of MainActivity is expanded.
@@ -66,6 +70,10 @@ final class Cfg {
 
     static String maxDate(Context c) {
         return p(c).getString(K_MAX_DATE, "");
+    }
+
+    static boolean autoBook(Context c) {
+        return p(c).getBoolean(K_AUTO_BOOK, true);
     }
 
     static boolean helpOpen(Context c) {

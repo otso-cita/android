@@ -22,9 +22,10 @@ no features are locked.
 3. **Enter your details** on the main screen: your **provincia**, how you sign
    in (**Certificado** or **Cl@ve permanente**), your **nacionalidad**, and
    your **surname** (used to pick your certificate).
-4. Make sure you're on **mobile data**, then press **START**. The phone will
-   hunt for a cita by itself and buzz + notify you when it finds one — you then
-   book it by hand in Chrome.
+4. Make sure you're on **mobile data**, then press **START**. The phone hunts
+   for a cita by itself, buzzes + notifies you the moment one appears, and
+   books it for you. (Prefer to book by hand? Untick **Reservar
+   automáticamente** and the bot will stop for you at that point instead.)
 
 The sections below explain each step in more detail.
 
@@ -52,8 +53,13 @@ Two things ship in this APK:
    form (Copiar datos + País = la nacionalidad configurada) → **Solicitar Cita**.
 4. **Result**: no citas → **repeat immediately** (no wait, no IP rotation), back
    at the entry URL; a WAF block → **no waiting**: wipe the ICP+ site's
-   cookies/storage in Chrome, rotate the IP, retry at once; **huecos** →
-   notification + vibration, and **stop** so you book by hand in Chrome.
+   cookies/storage in Chrome, rotate the IP, retry at once; **huecos** → you're
+   notified at once (vibration + notification), and then — with **Reservar
+   automáticamente** on (the default) — the bot **books the cita itself**:
+   picks an office, a slot inside your date window, solves the voice captcha
+   with Whisper, presses Confirmar, and stops with the justificante in the log.
+   With the checkbox off it **stops immediately** instead, leaving the page
+   open so you book by hand in Chrome.
 
 The site-data wipe is **scoped to the ICP+ site**, done through Chrome's own
 page-info bubble (padlock → *Cookies y datos del sitio* → delete → confirm) —
@@ -156,12 +162,16 @@ Selectors persist to SharedPreferences and are read at each START:
 - **Certificado (apellido / subcadena)** — when Chrome's cert chooser offers
   several certificates, the bot picks the one whose entry contains this text
   (e.g. your surname), then confirms.
+- **Reservar automáticamente** (checkbox, on by default) — whether the bot
+  completes the booking itself once citas appear. Untick it to have the bot
+  alert + stop the moment citas exist, so you do the booking by hand in Chrome.
 
 ## Run
 
 Open the **otso-cita** app → set the config selectors → **START**. The on-screen
-log mirrors every step; press **STOP** to end. It alerts and stops itself when a
-slot appears.
+log mirrors every step; press **STOP** to end. It alerts as soon as citas
+appear and stops itself when the booking is done (or right at the alert, if
+**Reservar automáticamente** is off).
 
 From adb (debugging), the same controls are on the socket:
 

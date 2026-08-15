@@ -74,6 +74,9 @@ class CitaBot implements Runnable {
     // Acceptable appointment-date window as yyyymmdd ints (0 = no bound).
     private int minDate = 0;
     private int maxDate = 0;
+    // Book the cita automatically (office → slot → captcha → Confirmar). When
+    // false, alert + stop as soon as citas appear so the user books by hand.
+    private boolean autoBook = true;
     private String entryUrl = ENTRY_BASE + "28&locale=es";
 
     // Candidate field labels for the solicitante form (Chrome exposes inputs by
@@ -324,6 +327,7 @@ class CitaBot implements Runnable {
         phone = Cfg.phone(svc);
         minDate = parseIsoDate(Cfg.minDate(svc));
         maxDate = parseIsoDate(Cfg.maxDate(svc));
+        autoBook = Cfg.autoBook(svc);
         entryUrl = ENTRY_BASE + provinceCode + "&locale=es";
     }
 
@@ -367,7 +371,8 @@ class CitaBot implements Runnable {
         log("cita bot started (toma de huellas · " + provinceName + ") auth=" + authMethod
                 + (certMatch.isEmpty() ? "" : " cert~'" + certMatch + "'") + " país=" + country
                 + (dateWindowSet() ? " fechas=[" + (minDate > 0 ? minDate : "…") + ".."
-                        + (maxDate > 0 ? maxDate : "…") + "]" : ""));
+                        + (maxDate > 0 ? maxDate : "…") + "]" : "")
+                + (autoBook ? "" : " reserva=manual"));
         int attempt = 0;
         while (running) {
             attempt++;
@@ -732,14 +737,38 @@ class CitaBot implements Runnable {
                     break;
                 case "cita_office":
                     // Citas exist (the acCitar page shows an office picker only
-                    // when there IS availability). Alert the user right now — once
-                    // — so a real cita is never missed even if the auto-booking
-                    // below gets stuck. This does NOT stop the bot: it keeps
-                    // trying to book while the user is notified.
+                    // when there IS availability). With auto-booking off, this is
+                    // where the bot hands over: alert + stop, leaving the office
+                    // picker on screen for the user to book by hand.
                     unknowns = 0;
+                    if (!autoBook) {
+                        log("    ¡hay citas! reserva automática desactivada: paro aquí "
+                                + "para que la reserves a mano en Chrome");
+                        return "cita";
+                    }
+                    // Alert the user right now — once — so a real cita is never
+                    // missed even if the auto-booking below gets stuck. This does
+                    // NOT stop the bot: it keeps trying to book while the user is
+                    // notified.
                     if (!citaFound) {
                         citaFound = true;
                         notifyCitaFound();
+                    }
+                    doStep(state);
+                    sleep(D_MICRO);
+                    break;
+                case "cita_form":
+                case "slots_captcha":
+                case "cita_confirm":
+                    // Booking tail. Normally reached only past the cita_office
+                    // gate above, but the flow can also land here directly (e.g.
+                    // straight from "Solicitar Cita") — honour the manual-booking
+                    // choice here too.
+                    unknowns = 0;
+                    if (!autoBook) {
+                        log("    reserva automática desactivada: paro y te dejo la "
+                                + "página abierta para reservar a mano");
+                        return "cita";
                     }
                     doStep(state);
                     sleep(D_MICRO);

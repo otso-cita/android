@@ -15,6 +15,7 @@ import android.util.Log;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.File;
 import java.util.ArrayDeque;
 import java.util.Locale;
 import java.util.Random;
@@ -1411,62 +1412,71 @@ class CitaBot implements Runnable {
         return false;
     }
 
-    private static final int CAPTCHA_CAPTURE_SECS = 9;
+    // Chrome's native <audio> media-controls overflow ("more options") button
+    // and its "Download" menu item — label/desc text can vary by Chrome
+    // version/locale; TUNE on-device (like the other label constants in this
+    // file) if the download step fails to find either.
+    private static final String[] AUDIO_MENU_LABELS =
+            {"More options", "Más opciones", "More media controls", "Mostrar más controles multimedia"};
+    private static final String[] AUDIO_DOWNLOAD_LABELS = {"Download", "Descargar"};
 
-    /** Read the audio captcha by PLAYING it and CAPTURING the browser's playback
-     *  with MediaProjection ({@link AudioCaptureService}), then transcribing the
-     *  WAV on-device with whisper.
+    /** Read the audio captcha by DOWNLOADING it via Chrome's native
+     *  &lt;audio&gt; controls, then transcribing the mp3 on-device with whisper.
+     *  Chrome-only: the download affordance isn't exposed to accessibility in
+     *  Firefox.
      *
-     *  This is browser-agnostic on purpose: Firefox exposes neither a download
-     *  button nor the audio's src (the accessibility tree carries no DOM URLs),
-     *  so the Chrome-era "download the mp3 via the &lt;audio&gt; overflow menu"
-     *  route is gone. Capturing what actually plays needs neither.
-     *
-     *  Sequence: start the recorder, give it a moment to spin up, tap "Escuchar
-     *  pista sonora" so the HTML5 &lt;audio&gt; plays, then wait for the capture
-     *  to finish and transcribe it. Needs the one-time MediaProjection consent
-     *  (granted in MainActivity); without it there is nothing to capture. */
+     *  Sequence: tap "Escuchar pista sonora" to surface the controls, tap
+     *  Download directly if it's already exposed, otherwise open the overflow
+     *  menu first and tap Download there. Every captcha reuses the same
+     *  filename, so Chrome's "download again? file exists" dialog fires on the
+     *  2nd+ attempt — {@link #dismissDownloadDialog()} clears it. Then poll
+     *  Downloads for the freshly-written file ({@link Whisper#newestDownloadAudio}). */
     private String obtainCaptchaFromAudio() {
-        if (!AudioCaptureService.hasConsent()) {
-            log("    sin permiso de captura de audio; concédelo en la app (botón 'DAR PERMISO')");
-            return null;
-        }
-        String wav = svc.getCacheDir().getAbsolutePath() + "/captcha.wav";
-        AudioCaptureService.lastWav = null;
-        AudioCaptureService.lastError = null;
-        java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
-        AudioCaptureService.doneLatch = latch;
-        Intent i = new Intent(svc, AudioCaptureService.class);
-        i.putExtra("path", wav);
-        i.putExtra("secs", CAPTCHA_CAPTURE_SECS);
-        try {
-            svc.startForegroundService(i);
-        } catch (Throwable t) {
-            log("    no pude arrancar la captura de audio: " + t);
-            return null;
-        }
-        // Let the recorder actually start before the audio plays, or its first
-        // second (often the whole short captcha) is lost.
-        sleepMs(800);
+        long startMs = System.currentTimeMillis();
         if (!tapNode("Escuchar pista sonora", 4)) {
-            log("    no encontré 'Escuchar pista sonora' para reproducir el captcha");
-        }
-        try {
-            latch.await(CAPTCHA_CAPTURE_SECS + 8L, java.util.concurrent.TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
+            log("    no encontré 'Escuchar pista sonora' para revelar el reproductor del captcha");
             return null;
         }
-        if (AudioCaptureService.lastError != null) {
-            log("    captura de audio falló: " + AudioCaptureService.lastError);
+        sleepMs(500);
+        boolean tappedDownload = tapNode("Download", 1) || tapNode("Descargar", 1);
+        if (!tappedDownload) {
+            boolean openedMenu = false;
+            for (String l : AUDIO_MENU_LABELS) {
+                if (tapNode(l, 1)) {
+                    openedMenu = true;
+                    break;
+                }
+            }
+            if (!openedMenu) {
+                log("    no encontré el menú de opciones del reproductor de audio");
+                return null;
+            }
+            sleepMs(300);
+            for (String l : AUDIO_DOWNLOAD_LABELS) {
+                if (tapNode(l, 1)) {
+                    tappedDownload = true;
+                    break;
+                }
+            }
+            if (!tappedDownload) {
+                log("    no encontré 'Download'/'Descargar' en el menú de opciones");
+                return null;
+            }
+        }
+        sleepMs(500);
+        dismissDownloadDialog();
+        File audio = null;
+        for (int i = 0; i < 10 && running; i++) {
+            audio = Whisper.newestDownloadAudio(startMs);
+            if (audio != null) break;
+            sleepMs(500);
+        }
+        if (audio == null) {
+            log("    no llegó el mp3 del captcha a Descargas");
             return null;
         }
-        if (AudioCaptureService.lastWav == null) {
-            log("    la captura de audio no produjo WAV");
-            return null;
-        }
-        log("    audio captcha capturado (" + CAPTCHA_CAPTURE_SECS + "s) — transcribiendo…");
-        return Whisper.readCaptcha(svc, AudioCaptureService.lastWav);
+        log("    captcha descargado (" + audio.getName() + ") — transcribiendo…");
+        return Whisper.readCaptcha(svc, audio.getAbsolutePath());
     }
 
     /** Confirm Chrome's "Download file again? — File name already exists"

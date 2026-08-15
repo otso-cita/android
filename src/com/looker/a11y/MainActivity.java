@@ -7,7 +7,6 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.Typeface;
-import android.media.projection.MediaProjectionManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
@@ -39,7 +38,6 @@ import rikka.shizuku.Shizuku;
 public class MainActivity extends Activity {
 
     private static final int SHIZUKU_REQ = 4711;
-    private static final int AUDIO_CONSENT_REQ = 4712;
 
     private static final int OK = Color.parseColor("#2e7d32");
     private static final int WARN = Color.parseColor("#e65100");
@@ -94,12 +92,10 @@ public class MainActivity extends Activity {
     private LinearLayout mainScreen;      // the normal app UI; hidden while checklistScreen shows
     private LinearLayout prepSection; // "Preparación" header inside checklistScreen
     private LinearLayout setupBox;   // the gating checklist: a11y, Shizuku, Whisper
-    private LinearLayout audioBox;   // audio-capture consent row, lives in mainScreen (asked every launch, not one-time setup)
     private View divider;
     private Check a11yCheck;
     private Check shizukuCheck;
     private Check whisperCheck;
-    private Check audioCheck;
     private Button startBtn;
     private Button stopBtn;
     private EditText certEdit;
@@ -152,12 +148,8 @@ public class MainActivity extends Activity {
         boolean wOk = Whisper.modelPresent(this) && !ws.contains("failed");
         whisperCheck.set(wOk, "Modelo de voz para el captcha (~514 MB, una vez): " + ws + ".");
 
-        boolean audioOk = AudioCaptureService.hasConsent();
-        audioCheck.set(audioOk, "Permiso de captura de audio (se pide en cada arranque de la app).");
-
         // a11y + Shizuku + Whisper are one-time setup: while any is missing,
-        // the checklist is the ONLY thing on screen. Audio consent is asked
-        // every launch, so it doesn't gate the screen — it lives in mainScreen.
+        // the checklist is the ONLY thing on screen.
         boolean coreDone = connected && shOk && wOk;
         checklistScreen.setVisibility(coreDone ? View.GONE : View.VISIBLE);
         mainScreen.setVisibility(coreDone ? View.VISIBLE : View.GONE);
@@ -334,24 +326,6 @@ public class MainActivity extends Activity {
         // pattern as "Cómo se usa" / the log pane). ----
         addSection(mainScreen, "Estadísticas");
         addStats(mainScreen);
-
-        // ---- audio-capture consent: needed to grab captcha audio, but unlike
-        // the checklist below it's asked again every launch, so it lives here
-        // in mainScreen rather than gating the whole screen. ----
-        addSection(mainScreen, "Captura de audio");
-        audioBox = new LinearLayout(this);
-        audioBox.setOrientation(LinearLayout.VERTICAL);
-        mainScreen.addView(audioBox, new LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        audioCheck = addCheck(audioBox, "Captura de audio", "DAR PERMISO",
-                v -> {
-                    MediaProjectionManager mpm = getSystemService(MediaProjectionManager.class);
-                    if (mpm == null) {
-                        toast("MediaProjection no disponible en este dispositivo");
-                        return;
-                    }
-                    startActivityForResult(mpm.createScreenCaptureIntent(), AUDIO_CONSENT_REQ);
-                });
 
         // ---- setup checklist: accesibilidad · Shizuku · Whisper. One-time setup
         // that gates the whole screen — see refresh()'s coreDone check. Each row
@@ -919,22 +893,6 @@ public class MainActivity extends Activity {
                         Uri.parse("https://play.google.com/store/apps/details?id=" + pkg)));
             } catch (ActivityNotFoundException e2) {
                 toast("No se encontró Play Store ni un navegador. Instala " + pkg + " manualmente.");
-            }
-        }
-    }
-
-    // MediaProjection consent for AudioCaptureService: stash the token statically
-    // (the capture service reads it when the bot needs to grab captcha audio).
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == AUDIO_CONSENT_REQ) {
-            if (resultCode == Activity.RESULT_OK && data != null) {
-                AudioCaptureService.resultCode = resultCode;
-                AudioCaptureService.resultData = data;
-                toast("Permiso de captura de audio concedido");
-            } else {
-                toast("Permiso de captura de audio denegado");
             }
         }
     }

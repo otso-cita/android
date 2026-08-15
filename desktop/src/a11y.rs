@@ -114,6 +114,23 @@ pub fn find_text<'v>(tree: &'v Value, needle: &str, require_clickable: bool) -> 
     None
 }
 
+/// Flatten `{"windows": [...]}` into document order — mirrors
+/// LookerClient._flatten (scripts/looker_client.py). Useful for proximity
+/// checks like "is the ✓/○ icon right before this row's title text".
+pub fn flatten(tree: &Value) -> Vec<&Value> {
+    fn walk<'v>(n: &'v Value, out: &mut Vec<&'v Value>) {
+        out.push(n);
+        for c in n.get("children").and_then(Value::as_array).into_iter().flatten() {
+            walk(c, out);
+        }
+    }
+    let mut out = Vec::new();
+    for w in tree.get("windows").and_then(Value::as_array).into_iter().flatten() {
+        walk(w, &mut out);
+    }
+    out
+}
+
 /// Center point of a node's `bounds: [l, t, r, b]`.
 pub fn center(node: &Value) -> Option<(i64, i64)> {
     let b = node.get("bounds")?.as_array()?;

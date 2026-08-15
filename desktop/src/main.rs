@@ -211,6 +211,37 @@ fn tap_first_match(client: &A11yClient, tree: &Value, labels: &[&str]) -> Result
     Ok(false)
 }
 
+/// Whether the Setup checklist's Shizuku row already shows "done" (✓) rather
+/// than "pending" (○) — its icon sits a couple of tree nodes before the row's
+/// title in document order. The checklist section only renders at all while
+/// something is still pending (MainActivity hides it once accessibility +
+/// Shizuku + Whisper are all ready), so a missing row means everything,
+/// Shizuku included, is already done.
+fn shizuku_row_done(tree: &Value) -> bool {
+    let flat = a11y::flatten(tree);
+    let idx = match flat.iter().position(|n| {
+        n.get("text")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_lowercase()
+            .contains("shizuku")
+    }) {
+        Some(i) => i,
+        None => return true,
+    };
+    for i in (0..idx).rev().take(3) {
+        if let Some(t) = flat[i].get("text").and_then(Value::as_str) {
+            if t == "\u{2713}" {
+                return true;
+            }
+            if t == "\u{25cb}" {
+                return false;
+            }
+        }
+    }
+    false
+}
+
 fn grant_shizuku_permission(adb: &Adb) -> Result<bool> {
     adb.shell(&format!("am start -n {OTSO_PACKAGE}/.MainActivity")).ok();
     std::thread::sleep(Duration::from_secs(2));
@@ -218,6 +249,9 @@ fn grant_shizuku_permission(adb: &Adb) -> Result<bool> {
     let client = A11yClient::connect(adb, A11Y_PORT)?;
 
     let tree = client.dump()?;
+    if shizuku_row_done(&tree) {
+        return Ok(true);
+    }
     if !tap_first_match(&client, &tree, GRANT_LABELS)? {
         return Ok(false);
     }

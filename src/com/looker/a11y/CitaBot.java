@@ -174,6 +174,13 @@ class CitaBot implements Runnable {
     // compared to unknown's 25s ceiling, but gives real page loads room to
     // finish before a WAF block is acted on (site-data wipe + IP rotation).
     private static final int WAF_CONFIRM_CHECKS = 4;
+    // Same idea, for the "Solicitar Cita" result: a single settle() read right
+    // after the click can catch the OLD page's classification (e.g. "options")
+    // before the new page has replaced it, wrongly reading as a "bounced back,
+    // not a cita" restart and triggering a needless IP rotation. Seen live: the
+    // app was visibly on the correct next page when this fired. Re-poll a few
+    // more times before trusting a same-page-looking result.
+    private static final int SUBMIT_BOUNCE_CONFIRM_CHECKS = 3;
     // ============================================================================
 
     private final LookerAccessibilityService svc;
@@ -669,6 +676,16 @@ class CitaBot implements Runnable {
                     click("Solicitar Cita");
                     sleep(D_PAGELOAD);
                     String rs = settle();   // wait out the (slow) result page
+                    // A reading that looks like the submit bounced back to an
+                    // earlier page can just be the OLD page's classification
+                    // still showing while the real result renders. Confirm it
+                    // survives a few more re-polls before trusting it — it's
+                    // what triggers "stuck" -> IP rotation below.
+                    for (int i = 0; i < SUBMIT_BOUNCE_CONFIRM_CHECKS
+                            && isSubmitBounceState(rs) && running; i++) {
+                        sleep(D_PAGELOAD);
+                        rs = settle();
+                    }
                     log("    'Solicitar Cita' result -> " + rs);
                     if (rs.equals("no_cita")) return "no_cita";
                     if (rs.equals("waf")) return "waf";
@@ -691,10 +708,7 @@ class CitaBot implements Runnable {
                     }
                     // If the result is instead a KNOWN earlier flow state, the
                     // submit bounced (session/form error) — not a cita; restart.
-                    if (rs.equals("office_tramite") || rs.equals("clave_choice")
-                            || rs.equals("clave_platform") || rs.equals("clave_login")
-                            || rs.equals("form")
-                            || rs.equals("province") || rs.equals("options")) {
+                    if (isSubmitBounceState(rs)) {
                         log("    the submit bounced back to " + rs + " (not a cita); restarting");
                         return "stuck";
                     }
@@ -2038,6 +2052,14 @@ class CitaBot implements Runnable {
             state = classify(collectText(), currentUrl());
         }
         return state;
+    }
+
+    /** States that, if seen right after pressing "Solicitar Cita", mean the
+     *  submit bounced back to an earlier step of the flow (not a cita). */
+    private boolean isSubmitBounceState(String s) {
+        return s.equals("office_tramite") || s.equals("clave_choice")
+                || s.equals("clave_platform") || s.equals("clave_login")
+                || s.equals("form") || s.equals("province") || s.equals("options");
     }
 
     private String collectText() {

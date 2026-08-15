@@ -6,9 +6,29 @@ If this bot saved you a trip to the extranjería (or a few weeks of F5), you can
 say thanks at <https://ko-fi.com/otsocita>. Entirely optional — the app is free,
 no features are locked.
 
-## Quick start (no PC, no technical skills needed)
+## Quick start
 
-1. **Download the app** on your phone: grab the latest `looker-signed.apk` from
+**Recommended — desktop setup tool (Windows/macOS/Linux):** connect your phone
+by USB with USB debugging enabled, then download and run `otso-setup` for your
+OS from the [Releases page](https://github.com/otso-cita/android/releases/latest)
+(no other install needed — it downloads `adb` itself):
+
+```bash
+./otso-setup          # otso-setup.exe on Windows
+```
+
+It downloads and installs otso-cita + Shizuku, enables accessibility, starts
+and grants Shizuku, fetches the Whisper model, and verifies everything end to
+end. What's left afterwards is just the two things below that need your own
+credentials: [sign-in setup](#sign-in-setup-certificate-or-clve-permanente)
+and entering your details in the app. See [desktop/README.md](desktop/README.md)
+for details, flags, and troubleshooting. After a phone reboot, Shizuku needs
+restarting — run `otso-setup --restart-shizuku-only`.
+
+**Manual setup (no PC, no technical skills needed)** — everything below can
+also be done by hand on the phone alone:
+
+1. **Download the app** on your phone: grab the latest release APK from
    the [Releases page](https://github.com/otso-cita/android/releases/latest)
    and open it to install (Android will ask you to allow installing from
    unknown sources — accept).
@@ -25,10 +45,14 @@ no features are locked.
      needed — details in [Shizuku setup](#shizuku-setup-for-ip-rotation)),
      then come back and tap **GRANT**.
    - **Whisper** → tap **DOWNLOAD** (a ~514 MB one-time download — use Wi-Fi).
-3. **Enter your details** on the main screen: your **province**, how you sign
+3. **Prepare your sign-in** (one-time): either **install your digital
+   certificate** on the phone, or **save your Cl@ve permanente password in
+   Chrome**. Step-by-step for both in
+   [Sign-in setup](#sign-in-setup-certificate-or-clve-permanente).
+4. **Enter your details** on the main screen: your **province**, how you sign
    in (**Certificate** or **Cl@ve permanente**), your **nationality**, and
    your **surname** (used to pick your certificate).
-4. Make sure you're on **mobile data**, then press **START**. The phone hunts
+5. Make sure you're on **mobile data**, then press **START**. The phone hunts
    for a cita by itself, buzzes + notifies you the moment one appears, and
    books it for you. (Prefer to book by hand? Untick **Book automatically**
    and the bot will stop for you at that point instead.)
@@ -93,25 +117,85 @@ a button that takes you to the right place:
 Beyond the checklist:
 
 - Phone on **mobile data** (for airplane-mode IP rotation to change the IP).
-- Your **Cl@ve digital certificate installed** in Android
-  (Settings → Security → Encryption & credentials → Install a certificate). The
-  bot picks the certificate whose entry contains the configured surname and
-  accepts Chrome's dialog, but the certificate itself must already be on device.
-- For **Cl@ve permanente** instead of the certificate: sign in **once by hand**
-  in Chrome and let it **save the password** (Chrome → Settings → Passwords, with
-  autofill on). The app never stores your NIE or password — on the Cl@ve login
-  page the bot does exactly two things: **taps the user field**, then **presses
-  the sign-in button of the Android credential sheet** that Chrome raises. That
-  sheet fills both fields and submits the form itself, so the bot deliberately
-  **never presses the page's own *Autenticar*** (only native views — nodes with
-  a `res_id` — are clickable in that step, and web nodes never have one). If the
-  sheet never appears, or Cl@ve rejects the sign-in, the bot **stops** and says
-  what to fix (retrying a rejected password is how a Cl@ve account gets blocked).
+- A working **sign-in**: either your **digital certificate installed on the
+  phone**, or your **Cl@ve permanente password saved in Chrome** — full
+  step-by-step in
+  [Sign-in setup](#sign-in-setup-certificate-or-clve-permanente).
 - Chrome installed (falls back to the default browser if `com.android.chrome`
   is absent).
 - **Shizuku** installed and running (for airplane-mode IP rotation) — see below.
 
+## Sign-in setup (certificate or Cl@ve permanente)
+
+The bot signs in to the sede the same way you would by hand, so one of the two
+methods must be ready on the phone **before the first START**. Do only the one
+you'll select in the app.
+
+### Option A — Digital certificate
+
+You need your certificate **as a file on the phone**, then install it into
+Android. If you don't have a certificate yet, you can request the FNMT
+*Certificado de Persona Física* at
+<https://www.sede.fnmt.gob.es/certificados/persona-fisica>.
+
+1. **Get the certificate file** (`.p12` or `.pfx`). If the certificate lives in
+   a browser on your computer, export it **with the private key**:
+   - **Chrome / Edge (PC)**: Settings → *Privacy and security* → *Security* →
+     *Manage certificates* → *Your certificates* → select it → **Export…** →
+     choose the **PKCS #12 (.pfx/.p12)** format **including the private key**,
+     and set an export password (you'll type it on the phone).
+   - **Firefox**: Settings → *Privacy & Security* → *View Certificates…* →
+     *Your Certificates* → **Backup…** (also asks for a password).
+
+   Then get the file onto the phone any way you like: email it to yourself,
+   upload to Drive and download on the phone, or copy over USB.
+2. **Install it on Android**:
+   Settings → **Security & privacy** → **More security settings** (on some
+   phones *Encryption & credentials*) → **Install a certificate** →
+   **VPN & app user certificate** → pick your `.p12` file → enter the export
+   password. Menu names vary a little between brands — searching for
+   *"certificate"* inside the Settings app finds the right screen.
+3. **Match the surname in the app.** Once installed, the certificate shows up
+   under your name (e.g. `GARCIA LOPEZ, MARIA - 12345678X`). In otso-cita, set
+   the **Certificate (surname)** field to any text that appears in that name —
+   your first surname is usually enough. That's how the bot picks *your*
+   certificate when Chrome's "Choose certificate" dialog appears.
+4. You can now **delete the `.p12` file** from Downloads/email — Android keeps
+   the installed copy.
+
+### Option B — Cl@ve permanente
+
+Requirements: you're registered in [Cl@ve](https://clave.gob.es/) and have
+**activated your Cl@ve permanente password**. The app never sees or stores
+your NIE or password — it relies entirely on the password **Chrome** has saved.
+
+1. **Let Chrome save passwords**: Chrome → **⋮** → *Settings* →
+   *Google Password Manager* → *Settings* → make sure **Offer to save
+   passwords** and **Auto sign-in** are on.
+2. **Sign in once by hand**: in Chrome on the phone, open the cita page (or any
+   Cl@ve-protected sede), choose *Presentación con Cl@ve* → **Cl@ve
+   permanente**, type your DNI/NIE and password, and when Chrome asks
+   **"Save password?"**, tap **Save**.
+3. **Verify the credential sheet**: open the Cl@ve permanente login again and
+   tap the **user field**. Chrome should raise a sheet at the bottom of the
+   screen with your saved account — tapping it fills both fields and signs in.
+   That sheet is exactly what the bot presses, so if it appears for you, the
+   bot will work; if it doesn't, fix step 1–2 first.
+
+Two things to know about how the bot behaves here:
+
+- On the Cl@ve login page it does exactly two taps: the **user field**, then
+  the **sign-in button on Chrome's credential sheet**. It deliberately never
+  presses the page's own *Autenticar* button.
+- If the sheet never appears, or Cl@ve **rejects** the sign-in, the bot
+  **stops** and tells you what to fix instead of retrying — repeated failed
+  attempts are how a Cl@ve account gets blocked. If you ever change your
+  Cl@ve password, sign in by hand once more so Chrome updates the saved one.
+
 ## Shizuku setup (for IP rotation)
+
+The [desktop setup tool](#quick-start) does all of this automatically —
+this section is for doing it by hand, or for understanding what it does.
 
 Airplane mode can't be toggled by a normal app on modern Android (blocked API;
 a bare secure-setting write doesn't engage the radio). We use
@@ -166,7 +250,8 @@ Selectors persist to SharedPreferences and are read at each START:
 - **Province** — sets the ICP `p=` code (INE province code).
 - **Sign-in method** — *Certificate* (drives *Access eIdentifier* + cert dialog)
   or *Cl@ve permanente* (opens the permanente card and signs in with the
-  password Chrome has saved — see Prerequisites).
+  password Chrome has saved — see
+  [Sign-in setup](#sign-in-setup-certificate-or-clve-permanente)).
 - **Nationality** — the *País de nacionalidad* selected on the form.
 - **Certificate (surname / text to pick it by)** — when Chrome's cert chooser
   offers several certificates, the bot picks the one whose entry contains this
@@ -203,6 +288,9 @@ adb install -r build/apk/looker-signed.apk
 `build.sh` uses `ANDROID_SDK_ROOT` (default `/mnt/dev/android-sdk`). If `javac`
 is missing, install a JDK — on Fedora:
 `sudo dnf install java-latest-openjdk-devel`.
+
+The `desktop/` directory has the desktop setup tool's source (Rust) — see
+[desktop/README.md](desktop/README.md) to build it.
 
 ## Tuning (must be done on a real device against the live site)
 

@@ -1,0 +1,23 @@
+[package]
+name = "otso-setup"
+version = "0.1.0"
+edition = "2021"
+description = "Desktop setup tool for otso-cita: downloads adb and configures a connected phone"
+
+[[bin]]
+name = "otso-setup"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+directories = "5"
+indicatif = "0.17"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+ureq = { version = "2", features = ["json", "tls"] }
+zip = "0.6"
+
+[profile.release]
+opt-level = "s"
+strip = true

@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 jobs:
-  build-and-release:
+  build-apk:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -31,6 +31,67 @@ jobs:
       - name: Build release APK
         run: ./gradlew assembleRelease --no-daemon --stacktrace
 
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk
+          path: build/outputs/apk/release/*.apk
+
+  build-setup-tool:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            bin: otso-setup
+            artifact: otso-setup-linux-x86_64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            bin: otso-setup.exe
+            artifact: otso-setup-windows-x86_64.exe
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            bin: otso-setup
+            artifact: otso-setup-macos-x86_64
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            bin: otso-setup
+            artifact: otso-setup-macos-aarch64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Build
+        working-directory: desktop
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Stage binary
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp "desktop/target/${{ matrix.target }}/release/${{ matrix.bin }}" "dist/${{ matrix.artifact }}"
+
+      - name: Upload setup-tool artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist/${{ matrix.artifact }}
+
+  publish:
+    needs: [build-apk, build-setup-tool]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
       - name: Determine release tag
         id: tag
         run: |
@@ -47,6 +108,6 @@ jobs:
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
           prerelease: ${{ steps.tag.outputs.prerelease }}
-          files: build/outputs/apk/release/*.apk
+          files: artifacts/**/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

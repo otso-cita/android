@@ -306,6 +306,12 @@ label constants at the top of `CitaBot.java` if a step fails:
   if both panels share text, fall back to tapping the leftmost by bounds.
 - **Certificate dialog** — `CERT_LABELS` / `CERT_OK_LABELS` cover the common
   button texts; add your device's exact wording if needed.
+- **False WAF detections on slow loads** — `settle()` re-checks a "waf" /
+  "expired" / "sslerror" reading `WAF_CONFIRM_CHECKS` times (1.5s apart, ~6s
+  total) before trusting it, since a still-loading page can transiently render
+  block-like text. If you still see the log wipe site data + rotate the IP
+  while a page is visibly mid-load, raise `WAF_CONFIRM_CHECKS` at the top of
+  `CitaBot.java`.
 
 ## WAF / anti-bot notes
 

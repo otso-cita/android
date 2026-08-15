@@ -166,6 +166,14 @@ class CitaBot implements Runnable {
     // (rotateIp) — and the next attempt starts immediately.
 
     private static final int MAX_STEPS_PER_ATTEMPT = 24;    // anti-loop firewall
+    // How many consecutive re-checks (1.5s apart) a "waf"/"expired"/"sslerror"
+    // reading must survive before settle() trusts it. A slow-loading page can
+    // transiently render text that looks like a block; a single 1.2s recheck
+    // wasn't enough margin for that (seen live: IP got rotated while a second
+    // page was still loading). ~6s of consistent readings is still fast
+    // compared to unknown's 25s ceiling, but gives real page loads room to
+    // finish before a WAF block is acted on (site-data wipe + IP rotation).
+    private static final int WAF_CONFIRM_CHECKS = 4;
     // ============================================================================
 
     private final LookerAccessibilityService svc;
@@ -2000,8 +2008,10 @@ class CitaBot implements Runnable {
 
     /** Poll the page until it classifies as something recognised, or a ceiling
      *  is hit — the fix for slow mobile loads. Re-reads every ~1.5s for up to
-     *  ~25s WITHOUT reloading. A transient WAF/expired reading is confirmed by a
-     *  second read so a mid-load flash doesn't trigger a needless back-off. */
+     *  ~25s WITHOUT reloading. A "bad" reading (waf/expired/sslerror) must
+     *  survive WAF_CONFIRM_CHECKS consecutive re-reads before it's trusted, so
+     *  a still-loading page (which can transiently render block-like text)
+     *  doesn't trigger a needless site-data wipe + IP rotation. */
     private String settle() {
         long deadline = System.currentTimeMillis() + 25_000;
         String state = classify(collectText(), currentUrl());
@@ -2009,12 +2019,17 @@ class CitaBot implements Runnable {
             if (!state.equals("unknown")) {
                 // Confirm sticky "bad" states so a load-time flash isn't trusted.
                 if (state.equals("waf") || state.equals("expired") || state.equals("sslerror")) {
-                    sleepMs(1200);
-                    String again = classify(collectText(), currentUrl());
-                    if (!again.equals(state)) {
-                        state = again;
-                        continue;   // re-evaluate the new reading
+                    boolean confirmed = true;
+                    for (int i = 0; i < WAF_CONFIRM_CHECKS; i++) {
+                        sleepMs(1500);
+                        String again = classify(collectText(), currentUrl());
+                        if (!again.equals(state)) {
+                            state = again;
+                            confirmed = false;
+                            break;
+                        }
                     }
+                    if (!confirmed) continue;   // re-evaluate the new reading
                 }
                 return state;
             }

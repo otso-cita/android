@@ -6,6 +6,28 @@ If this bot saved you a trip to the extranjería (or a few weeks of F5), you can
 say thanks at <https://ko-fi.com/otsocita>. Entirely optional — the app is free,
 no features are locked.
 
+## Quick start (no PC, no technical skills needed)
+
+1. **Download the app** on your phone: grab the latest `looker-signed.apk` from
+   the [Releases page](https://github.com/otso-cita/android/releases/latest)
+   and open it to install (Android will ask you to allow installing from
+   unknown sources — accept).
+2. **Open otso-cita** — it shows a checklist. Tap each button and follow along:
+   - **Accesibilidad** → tap **ACTIVAR** and switch on **otso-cita**.
+   - **Shizuku** → install it from the Play Store, then start it using
+     **Wireless debugging** (the Shizuku app walks you through it, no PC
+     needed — details in [Shizuku setup](#shizuku-setup-for-ip-rotation)),
+     then come back and tap **DAR PERMISO**.
+   - **Whisper** → tap **DESCARGAR** (a ~514 MB one-time download — use Wi-Fi).
+3. **Enter your details** on the main screen: your **provincia**, how you sign
+   in (**Certificado** or **Cl@ve permanente**), your **nacionalidad**, and
+   your **surname** (used to pick your certificate).
+4. Make sure you're on **mobile data**, then press **START**. The phone will
+   hunt for a cita by itself and buzz + notify you when it finds one — you then
+   book it by hand in Chrome.
+
+The sections below explain each step in more detail.
+
 Two things ship in this APK:
 
 1. **otso-cita accessibility service** — reads the screen and drives apps via the

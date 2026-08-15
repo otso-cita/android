@@ -81,7 +81,8 @@ fn main() -> Result<()> {
         "shizuku.apk",
     )?;
 
-    println!("\n[4/8] Installing both APKs...");
+    println!("\n[4/8] Installing both APKs (can take a minute or two on older phones, especially \
+              the first install \u{2014} this is not stuck)...");
     adb.install(&otso_apk).context("installing otso-cita")?;
     println!("      otso-cita installed.");
     adb.install(&shizuku_apk).context("installing Shizuku")?;

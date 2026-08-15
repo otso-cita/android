@@ -21,7 +21,7 @@ What it does, in order:
    your OS into a per-user cache directory.
 2. Waits for exactly one authorized device.
 3. Downloads the latest otso-cita and Shizuku APKs from GitHub Releases.
-4. Installs both.
+4. Installs both — can take a minute or two on older phones, this is normal.
 5. Enables the accessibility service headlessly (`adb shell settings put
    secure enabled_accessibility_services ...`) — no on-phone tap needed, and
    this isn't blocked by Android 13+'s "Restricted settings" (that only
@@ -48,6 +48,15 @@ main [README](../README.md#sign-in-setup-certificate-or-clve-permanente).
 - `--restart-shizuku-only` — Shizuku's service dies on every phone reboot;
   this just re-runs the "start Shizuku" step and re-verifies, without
   reinstalling anything.
+
+## Troubleshooting
+
+- **Install step (4) hangs indefinitely** (not just "slow", genuinely stuck
+  for minutes with no progress): don't run two copies of this tool — or this
+  tool alongside a manual `adb install`/`adb shell` — against the *same
+  device* at the same time. `adb`'s daemon can deadlock when two installs to
+  one device race each other. Fix: close the other copy, then
+  `adb kill-server && adb start-server` to reset the connection, and re-run.
 
 ## Build
 
